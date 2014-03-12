@@ -164,6 +164,376 @@ public class AvailabilityMonitor extends AbstractMonitor{
 
 	@Override
 	public void run() {
+
+		initialize();
+		
+		analyseVmApp();
+		
+		while (true) {
+			computeStatistics();
+			
+			try {
+				Thread.sleep(availabilityPeriod);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void initialize() {
+		availabilityStats = new HashMap<String,Stat>();
+		
+		final String fileName;
+		File dir = new File(logFile);
+		fileName = dir.getName();
+		
+		if(dir.exists()){
+			dir = dir.getParentFile();
+	    } 
+		else {
+			return;
+		}
+		
+		File[] files = null;
+		
+		long currentMillis = System.currentTimeMillis();
+		
+		long startMillis = currentMillis - availabilityPeriod;
+		
+		files = dir.listFiles(new FilenameFilter() {
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.startsWith(fileName);
+			}
+		});
+		
+		Arrays.sort(files,Collections.reverseOrder());
+				
+		for (int i = 0; i < files.length; i++) {
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(files[i]));
+				
+				String sCurrentLine;
+				while ((sCurrentLine = br.readLine()) != null) {
+					String[] splits = sCurrentLine.split("\t");
+					
+					SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy,HH:mm:ss,SSS");
+					Date date = sdf.parse(splits[0]);
+					
+					if (date.getTime() > startMillis) {
+						if (availabilityStats.get(splits[1]) == null) {
+							Stat temp = new Stat();
+							temp.lastTime = date.getTime();
+							temp.wasReachable = splits[2];
+							
+							if (splits[2].equals("reachable")) {
+								temp.successCount += 1;
+							}
+							else {
+								temp.failCount += 1;
+							}
+							
+							availabilityStats.put(splits[1], temp);
+						}
+						else {
+							Stat temp = availabilityStats.get(splits[1]);
+							if (temp.wasReachable.equals(splits[2])) {
+								if (temp.wasReachable.equals("reachable")) {
+									temp.successTime += date.getTime() - temp.lastTime;
+								}
+								else {
+									temp.failTime += date.getTime() - temp.lastTime;
+								}
+								temp.lastTime = date.getTime();
+							}
+							else {
+								if (temp.wasReachable.equals("reachable")) {
+									temp.failCount += 1;
+									temp.wasReachable = "unreachable";
+								}
+								else {
+									temp.successCount += 1;
+									temp.wasReachable = "reachable";
+								}
+								temp.lastTime = date.getTime();
+							}
+							
+							availabilityStats.put(splits[1], temp);
+						}
+					}
+				}
+				br.close();
+				
+				
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void computeStatistics() {		
+		for (Map.Entry<String, Stat> entry : availabilityStats.entrySet()) {
+		    String key = entry.getKey();
+		    Stat value = entry.getValue();
+		    
+		    try {
+		    	if (value.failCount != 0) {
+		    		double temp;
+		    		if (value.wasReachable.equals("reachable")) {
+		    			temp = System.currentTimeMillis() - value.lastTime;
+		    		}
+		    		else {
+		    			temp = 0;
+		    		}
+		    		
+				    double MTTF = ((double)value.successTime+temp)/value.failCount;
+					ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Availability", monitoredResourceID);
+		    	}
+		    	else {
+		    		ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+"No failure", "Availability", monitoredResourceID);
+		    	}
+		    	
+			    if (value.successCount != 0) {
+			    	double temp;
+		    		if (value.wasReachable.equals("unreachable")) {
+		    			temp = System.currentTimeMillis() - value.lastTime;
+		    		}
+		    		else {
+		    			temp = 0;
+		    		}
+		    		
+				    double MTTR = ((double)value.failTime+temp)/value.successCount;
+					ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Availability", monitoredResourceID);			    	
+			    }
+			    else {
+			    	ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+"No success", "Availability", monitoredResourceID);
+			    }
+
+			} catch (ServerErrorException e) {
+				e.printStackTrace();
+			} catch (StreamErrorException e) {
+				e.printStackTrace();
+			} catch (ValidationErrorException e) {
+				e.printStackTrace();
+			}
+		}
+	
+	}
+
+	/**
+	 * Start the thread to check the availability of the VMs and applications.
+	 */
+	private void analyseVmApp() {
+		for (vmInfo vm: vms) {
+			new Thread(new vmAvailability(vm)).start();
+		}
+
+		for (appInfo app: apps) {
+			new Thread(new appAvailability(app)).start();
+		}
+	}
+
+	/**
+	 * Sub thread to check the availability of VMs.
+	 */
+	private class vmAvailability implements Runnable{
+
+		private vmInfo vm;
+
+		public vmAvailability(vmInfo vm){
+			this.vm = vm;
+		}
+
+		@Override
+		public void run() {
+			while (true) {
+				boolean reachable = false;
+				try {
+					reachable = InetAddress.getByName(vm.publicIP).isReachable(vm.retryPeriod);
+				} catch (UnknownHostException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				try{
+					if (availabilityStats.get(vm.publicIP) == null) {
+						Stat temp = new Stat();
+						
+						if (reachable) {
+							temp.wasReachable = "reachable";
+							temp.lastTime = System.currentTimeMillis();
+							availabilityStats.put(vm.publicIP, temp);
+							
+							logger.info(vm.publicIP+"\t"+"reachable");
+							System.out.println("The vm is available");
+							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+						}
+						else {
+							temp.wasReachable = "unreachable";
+							temp.lastTime = System.currentTimeMillis();
+							availabilityStats.put(vm.publicIP, temp);
+							
+							logger.info(vm.publicIP+"\t"+"unreachable");
+							System.out.println("The vm is not available");
+							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+						}
+					}
+					else {
+						Stat temp = availabilityStats.get(vm.publicIP);
+						
+						if (reachable) {
+							if (temp.wasReachable.equals("reachable")){
+								temp.successTime += System.currentTimeMillis() - temp.lastTime;
+							}
+							else{
+								temp.wasReachable = "reachable";
+								temp.successCount += 1;
+								
+								logger.info(vm.publicIP+"\t"+"reachable");
+							}
+							System.out.println("The vm is available");
+							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+							temp.lastTime = System.currentTimeMillis();
+						}
+						else{
+							if (temp.wasReachable.equals("unreachable")) {
+								temp.failTime += System.currentTimeMillis() - temp.lastTime;
+							}
+							else{
+								temp.wasReachable = "unreachable";
+								temp.failCount += 1;
+								
+								logger.info(vm.publicIP+"\t"+"unreachable");
+							}
+							System.out.println("The vm is not available");
+							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+							temp.lastTime = System.currentTimeMillis();
+						}
+					}
+				} catch (ServerErrorException e) {
+					e.printStackTrace();
+				} catch (StreamErrorException e) {
+					e.printStackTrace();
+				} catch (ValidationErrorException e) {
+					e.printStackTrace();
+				} 
+				
+				try {
+					Thread.sleep(vm.retryPeriod);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Sub thread to check the availability of applications.
+	 */
+	private class appAvailability implements Runnable{
+
+		private appInfo app;
+
+		public appAvailability(appInfo app) {
+			this.app = app;
+		}
+
+		@Override
+		public void run() {
+			while (true) {
+				HttpURLConnection connection;
+				try {
+					connection = (HttpURLConnection) new URL(app.url).openConnection();
+
+					connection.setRequestMethod("HEAD");
+					int responseCode = connection.getResponseCode();
+					
+					try{
+						if (availabilityStats.get(app.url) == null) {
+							Stat temp = new Stat();
+							
+							if (responseCode == 200) {
+								temp.wasReachable = "reachable";
+								temp.lastTime = System.currentTimeMillis();
+								availabilityStats.put(app.url, temp);
+								
+								logger.info(app.url+"\t"+"reachable");
+								System.out.println("The application is available");
+								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+							}
+							else {
+								temp.wasReachable = "unreachable";
+								temp.lastTime = System.currentTimeMillis();
+								availabilityStats.put(app.url, temp);
+								
+								logger.info(app.url+"\t"+"unreachable");
+								System.out.println("The application is not available");
+								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+							}
+						}
+						else {
+							Stat temp = availabilityStats.get(app.url);
+							
+							if (responseCode == 200) {
+								if (temp.wasReachable.equals("reachable")){
+									temp.successTime += System.currentTimeMillis() - temp.lastTime;
+								}
+								else{
+									temp.wasReachable = "reachable";
+									temp.successCount += 1;
+									
+									logger.info(app.url+"\t"+"reachable");
+								}
+								System.out.println("The application is available");
+								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+								temp.lastTime = System.currentTimeMillis();
+							}
+							else{
+								if (temp.wasReachable.equals("unreachable")) {
+									temp.failTime += System.currentTimeMillis() - temp.lastTime;
+								}
+								else{
+									temp.wasReachable = "unreachable";
+									temp.failCount += 1;
+									
+									logger.info(app.url+"\t"+"unreachable");
+								}
+								System.out.println("The application is not available");
+								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+								temp.lastTime = System.currentTimeMillis();
+							}
+						}
+					} catch (ServerErrorException e) {
+						e.printStackTrace();
+					} catch (StreamErrorException e) {
+						e.printStackTrace();
+					} catch (ValidationErrorException e) {
+						e.printStackTrace();
+					} 
+					try {
+						Thread.sleep(app.retryPeriod);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+
+				} catch (MalformedURLException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+
+	@Override
+	public void start() {
+		avmt = new Thread( this, "avm-mon");		
+		
 		vms = new ArrayList<vmInfo>();
 
 		apps = new ArrayList<appInfo>();
@@ -249,278 +619,6 @@ public class AvailabilityMonitor extends AbstractMonitor{
 		log4jProperties.setProperty("log4j.appender.file.layout","org.apache.log4j.PatternLayout");
 		log4jProperties.setProperty("log4j.appender.file.layout.conversionPattern", "%d{dd-MMM-yyyy,HH:mm:ss,SSS}	%m%n");
 		PropertyConfigurator.configure(log4jProperties);
-		
-		analyseVmApp();
-		
-		while (true) {
-			computeStatistics();
-			
-			try {
-				Thread.sleep(availabilityPeriod);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-	
-	private void computeStatistics() {
-		availabilityStats = new HashMap<String,Stat>();
-		
-		final String fileName;
-		File dir = new File(logFile);
-		fileName = dir.getName();
-		
-		if(dir.exists()){
-			dir = dir.getParentFile();
-	    } 
-		else {
-			return;
-		}
-		
-		File[] files = null;
-		
-		long currentMillis = System.currentTimeMillis();
-		
-		long startMillis = currentMillis - availabilityPeriod;
-		
-		files = dir.listFiles(new FilenameFilter() {
-			@Override
-			public boolean accept(File dir, String name) {
-				return name.startsWith(fileName);
-			}
-		});
-		
-		Arrays.sort(files,Collections.reverseOrder());
-				
-		for (int i = 0; i < files.length; i++) {
-			System.out.println(files[i].getName());
-			try {
-				BufferedReader br = new BufferedReader(new FileReader(files[i]));
-				
-				int outdated = 1;
-				String sCurrentLine;
-				while ((sCurrentLine = br.readLine()) != null) {
-					String[] splits = sCurrentLine.split("\t");
-					
-					SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy,HH:mm:ss,SSS");
-					Date date = sdf.parse(splits[0]);
-					
-					if (date.getTime() > startMillis) {
-						outdated = 0;
-						if (availabilityStats.get(splits[1]) == null) {
-							Stat temp = new Stat();
-							temp.lastTime = date.getTime();
-							temp.wasReachable = splits[2];
-							
-							if (splits[2].equals("reachable")) {
-								temp.successCount += 1;
-							}
-							else {
-								temp.failCount += 1;
-							}
-							
-							availabilityStats.put(splits[1], temp);
-						}
-						else {
-							Stat temp = availabilityStats.get(splits[1]);
-							if (temp.wasReachable.equals(splits[2])) {
-								if (temp.wasReachable.equals("reachable")) {
-									temp.successTime += date.getTime() - temp.lastTime;
-								}
-								else {
-									temp.failTime += date.getTime() - temp.lastTime;
-								}
-								temp.lastTime = date.getTime();
-							}
-							else {
-								if (temp.wasReachable.equals("reachable")) {
-									temp.failCount += 1;
-									temp.wasReachable = "unreachable";
-								}
-								else {
-									temp.successCount += 1;
-									temp.wasReachable = "reachable";
-								}
-								temp.lastTime = date.getTime();
-							}
-							
-							availabilityStats.put(splits[1], temp);
-						}
-					}
-				}
-				br.close();
-				if (outdated == 1 && i != (files.length-1)) {
-					if(files[i].delete()){
-		    			System.out.println(files[i].getName() + " is deleted!");
-		    		}else{
-		    			System.out.println("Delete operation is failed.");
-		    		}
-				}
-				
-				
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			} catch (ParseException e) {
-				e.printStackTrace();
-			}
-		}
-		
-		for (Map.Entry<String, Stat> entry : availabilityStats.entrySet()) {
-		    String key = entry.getKey();
-		    Stat value = entry.getValue();
-		    
-		    try {
-		    	if (value.failCount != 0) {
-				    double MTTF = (double)value.successTime/value.failCount;
-					ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Availability", monitoredResourceID);
-		    	}
-		    	else {
-		    		ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+"No failure", "Availability", monitoredResourceID);
-		    	}
-		    	
-			    if (value.successCount != 0) {
-				    double MTTR = (double)value.failTime/value.successCount;
-					ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Availability", monitoredResourceID);			    	
-			    }
-			    else {
-			    	ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+"No success", "Availability", monitoredResourceID);
-			    }
-
-			} catch (ServerErrorException e) {
-				e.printStackTrace();
-			} catch (StreamErrorException e) {
-				e.printStackTrace();
-			} catch (ValidationErrorException e) {
-				e.printStackTrace();
-			}
-		}
-	
-	}
-
-	/**
-	 * Start the thread to check the availability of the VMs and applications.
-	 */
-	private void analyseVmApp() {
-		for (vmInfo vm: vms) {
-			new Thread(new vmAvailability(vm)).start();
-		}
-
-		for (appInfo app: apps) {
-			new Thread(new appAvailability(app)).start();
-		}
-	}
-
-	/**
-	 * Sub thread to check the availability of VMs.
-	 */
-	private class vmAvailability implements Runnable{
-
-		private vmInfo vm;
-
-		public vmAvailability(vmInfo vm){
-			this.vm = vm;
-		}
-
-		@Override
-		public void run() {
-			while (true) {
-				boolean reachable = false;
-				try {
-					reachable = InetAddress.getByName(vm.publicIP).isReachable(vm.retryPeriod);
-				} catch (UnknownHostException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				try{
-					if (reachable) {
-						logger.info(vm.publicIP+"\t"+"reachable");
-						
-						System.out.println("The vm is available");
-						//ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
-						//break;
-					}
-					else{
-						logger.info(vm.publicIP+"\t"+"unreachable");
-						
-						System.out.println("The vm is not available");
-						ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
-					}
-				} catch (ServerErrorException e) {
-					e.printStackTrace();
-				} catch (StreamErrorException e) {
-					e.printStackTrace();
-				} catch (ValidationErrorException e) {
-					e.printStackTrace();
-				}
-				try {
-					Thread.sleep(vm.retryPeriod);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
-	/**
-	 * Sub thread to check the availability of applications.
-	 */
-	private class appAvailability implements Runnable{
-
-		private appInfo app;
-
-		public appAvailability(appInfo app) {
-			this.app = app;
-		}
-
-		@Override
-		public void run() {
-			while (true) {
-				HttpURLConnection connection;
-				try {
-					connection = (HttpURLConnection) new URL(app.url).openConnection();
-
-					connection.setRequestMethod("HEAD");
-					int responseCode = connection.getResponseCode();
-					try{
-						if (responseCode != 200) {
-							logger.info(app.url+"\t"+"unreachable");
-							
-							System.out.println("The application is not available");
-							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
-						}
-						else {
-							logger.info(app.url+"\t"+"reachable");
-							
-							System.out.println("The application is available");	
-							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
-							//break;
-						}
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
-						e.printStackTrace();
-					}
-					Thread.sleep(app.retryPeriod);
-				} catch (MalformedURLException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
-
-
-	@Override
-	public void start() {
-		avmt = new Thread( this, "avm-mon");		
 	}
 
 	@Override
