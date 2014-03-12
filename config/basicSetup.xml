@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<setup>
+        <streamIri>http://myexample.org/stream</streamIri>
+        <serverIP>localhost</serverIP>
+        <monitorPeriod>5000</monitorPeriod>
+        <ddaURL>http://ec2-54-216-89-129.eu-west-1.compute.amazonaws.com:8175</ddaURL>
+        <vmID>vm1</vmID>
+</setup>

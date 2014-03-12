@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<availability>
+    <logFile>C:\\Users\\think\\Desktop\\log.txt</logFile>
+    <availabilityPeriod>3600000</availabilityPeriod>
+	<vm>
+		<publicIP>109.231.122.220</publicIP>
+		<retryPeriod>1000</retryPeriod>
+	</vm>
+	<app>
+		<url>http://109.231.122.104:8080/ecommerce</url>
+		<retryPeriod>1000</retryPeriod>
+	</app>
+</availability>

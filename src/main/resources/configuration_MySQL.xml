@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<mysql-metric>
+        <databaseAddress>jdbc:drizzle://109.231.122.220:3306/</databaseAddress>
+        <databaseUser>ofbiz</databaseUser>
+        <databasePassword>123456</databasePassword>
+        <monitorPeriod>60000</monitorPeriod>
+        <metricName>Uptime</metricName>
+        <metricName>Uptime_since_flush_status</metricName>
+        <metricName>Threads_running</metricName>
+        <metricName>Threads_cached</metricName>
+        <metricName>Threads_connected</metricName>
+        <metricName>Threads_created</metricName>
+        <metricName>Queries</metricName>
+        <metricName>Bytes_received</metricName>
+        <metricName>Bytes_sent</metricName>
+        <metricName>Connections</metricName>
+        <metricName>Aborted_connects</metricName>
+        <metricName>Aborted_clients</metricName>
+        <metricName>Table_locks_immediate</metricName>
+        <metricName>Table_locks_waited</metricName>
+        <metricName>Com_insert</metricName>
+        <metricName>Com_delete</metricName>
+        <metricName>Com_update</metricName>
+        <metricName>Com_select</metricName>
+        <metricName>Qcache_hits</metricName>
+</mysql-metric>

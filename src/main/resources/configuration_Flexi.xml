@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<flexi-metric>
+	<nodeAddress>109.231.120.50</nodeAddress>
+	<host>109.231.122.199</host>
+	<user>ubuntu</user>
+	<password></password>
+	<monitorPeriod>5000</monitorPeriod>
+</flexi-metric>

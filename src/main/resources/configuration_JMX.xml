@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<reflectionXML>
+    <categoryList>
+        <category categoryName="Thread" resolution="5000">
+            <metricList>
+				<metric metricName="PeakThreadCount">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.ThreadMXBean" functionName="getPeakThreadCount"/>
+                    </functionList>
+                </metric>
+            </metricList>
+        </category>
+		<category categoryName="Memory" resolution="5000">
+            <metricList>
+                <metric metricName="HeapMemoryUsed">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+                    </functionList>
+                </metric>
+				<metric metricName="NonHeapMemoryUsed">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getNonHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+                    </functionList>
+                </metric>
+            </metricList>
+        </category>
+		<category categoryName="MemoryPool" resolution="5000">
+			<metricList>
+				<metric metricName="PeakUsage_JMX">
+					<functionList>
+						<function functionID="0" className="java.lang.management.MemoryPoolMXBean" functionName="getName"/>
+						<function functionID="1" className="java.lang.management.MemoryPoolMXBean" functionName="getPeakUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+					</functionList>
+				</metric>
+				<metric metricName="Usage">
+					<functionList>
+						<function functionID="0" className="java.lang.management.MemoryPoolMXBean" functionName="getName"/>
+						<function functionID="1" className="java.lang.management.MemoryPoolMXBean" functionName="getUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+					</functionList>
+				</metric>
+			</metricList>
+		</category>
+		<category categoryName="RunTime" resolution="5000">
+			<metricList>
+				<metric metricName="Uptime">
+					<functionList>
+                        <function functionID="1" className="java.lang.management.RuntimeMXBean" functionName="getUptime"/>
+                    </functionList>
+				</metric>
+			</metricList>
+		</category>
+    </categoryList>
+</reflectionXML>
