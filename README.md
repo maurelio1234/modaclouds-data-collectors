@@ -1,6 +1,6 @@
 Modaclouds-DataCollectors
 =========================
-Requirements
+# Requirements
 
 Please download and install the following pieces of software before using the Data Collectors component:
 • JRE 1.7 or higher from http://www.java.com/
