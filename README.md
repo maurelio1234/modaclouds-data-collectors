@@ -10,3 +10,6 @@ Please download and install the following pieces of software before using the Da
 ## Installation
 * Compile the code or download the latest release from [https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases](https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases).
 * Run it as: 
+```java
+java -Djava.library.path=/home/ubuntu/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar dcs-0.0.1-SNAPSHOT-jar-with-dependencies.jar
+```
