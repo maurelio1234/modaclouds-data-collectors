@@ -280,39 +280,42 @@ public class AvailabilityMonitor extends AbstractMonitor{
 		    String key = entry.getKey();
 		    Stat value = entry.getValue();
 		    
+		    double MTTF = 0;
+		    double MTTR = 0;
+		    double avai = 0;
+		    
+		    double temp_succ = 0;
+		    double temp_fail = 0;
+		    
 		    try {
-		    	if (value.failCount != 0) {
-		    		double temp;
-		    		if (value.wasReachable.equals("reachable")) {
-		    			temp = System.currentTimeMillis() - value.lastTime;
-		    		}
-		    		else {
-		    			temp = 0;
-		    		}
-		    		
-				    double MTTF = ((double)value.successTime+temp)/value.failCount;
-					ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Availability", monitoredResourceID);
+	    		if (value.wasReachable.equals("reachable")) {
+	    			temp_succ = System.currentTimeMillis() - value.lastTime;
+	    			temp_fail = 0;
+	    		}
+	    		else {
+	    			temp_succ = 0;
+	    			temp_fail = System.currentTimeMillis() - value.lastTime;
+	    		}
+	    		
+				avai = ((double)value.successTime+temp_succ)/((double)value.successTime+(double)value.failTime+temp_succ+temp_fail);
+	    		
+		    	if (value.failCount != 0) {	    		
+				    MTTF = ((double)value.successTime+temp_succ)/value.failCount;
 		    	}
 		    	else {
-		    		ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+"No failure", "Availability", monitoredResourceID);
+		    		MTTF = (double)value.successTime+temp_succ;
 		    	}
 		    	
-			    if (value.successCount != 0) {
-			    	double temp;
-		    		if (value.wasReachable.equals("unreachable")) {
-		    			temp = System.currentTimeMillis() - value.lastTime;
-		    		}
-		    		else {
-		    			temp = 0;
-		    		}
-		    		
-				    double MTTR = ((double)value.failTime+temp)/value.successCount;
-					ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Availability", monitoredResourceID);			    	
+			    if (value.successCount != 0) {	    		
+				    MTTR = ((double)value.failTime+temp_fail)/value.successCount;
 			    }
 			    else {
-			    	ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+"No success", "Availability", monitoredResourceID);
+				    MTTR = (double)value.failTime+temp_fail;
 			    }
 
+			    ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Reliability", monitoredResourceID);
+		    	ddaConnector.sendSyncMonitoringDatum("Availability\t"+key+"\t"+avai, "Availability", monitoredResourceID);
+		    	ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Reliability", monitoredResourceID);
 			} catch (ServerErrorException e) {
 				e.printStackTrace();
 			} catch (StreamErrorException e) {
