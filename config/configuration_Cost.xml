@@ -2,7 +2,6 @@
 <cost>
 	<accessKey></accessKey>
 	<secretKey></secretKey>
-	<instanceID>i-1dc70b52</instanceID>
 	<monitorPeriod>30000</monitorPeriod>
 	<metricName>EstimatedCharges</metricName>
 </cost>

@@ -68,11 +68,6 @@ public class CostMonitor extends AbstractMonitor{
 	private Thread cwmt;
 	
 	/**
-	 * The instance ID.
-	 */
-	private String instanceID;
-	
-	/**
 	 * Amazon CloudWatch client.
 	 */
 	private AmazonCloudWatchClient cloudWatchClient;
@@ -164,7 +159,6 @@ public class CostMonitor extends AbstractMonitor{
 					
 					accessKeyId = eElement.getElementsByTagName("accessKey").item(0).getTextContent();
 					secretKey = eElement.getElementsByTagName("secretKey").item(0).getTextContent();
-					instanceID = eElement.getElementsByTagName("instanceID").item(0).getTextContent();
 					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
 				}
 			}
