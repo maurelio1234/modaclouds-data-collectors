@@ -18,9 +18,10 @@
  */
 package imperial.modaclouds.monitoring.datacollectors.demo.ofbiz;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.commons.vocabulary.MC;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
+import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
+import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,6 +33,7 @@ import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -84,6 +86,16 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	private DDAConnector ddaConnector;
 	
 	/**
+	 * Knowledge base connector.
+	 */
+	private KBConnector kbConnector;
+	
+	/**
+	 * Object store connector.
+	 */
+	private ObjectStoreConnector objectStoreConnector;
+	
+	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
@@ -93,8 +105,14 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 */
 	public OFBizLogFileMonitor ( ) throws MalformedURLException  {
-		ddaConnector = DDAConnector.getInstance();
+		this.monitoredResourceID = UUID.randomUUID().toString();
 		monitorName = "ofbiz";
+		
+		ddaConnector = DDAConnector.getInstance();
+		kbConnector = KBConnector.getInstance();
+		objectStoreConnector = ObjectStoreConnector.getInstance();
+		
+		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 	
 	/**
@@ -189,7 +207,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 				
 				try {
 					if (Math.random() < this.samplingProb) {
-						ddaConnector.sendSyncMonitoringDatum(temp, MC.ApacheLog, monitoredResourceID);
+						ddaConnector.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredResourceID);
 					}
 				} catch (ServerErrorException e) {
 					e.printStackTrace();

@@ -59,6 +59,8 @@ import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
+import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
+import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
 
 /**
  * The monitoring collector for availability of VMs and applications.
@@ -93,6 +95,16 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	private DDAConnector ddaConnector;
 	
 	/**
+	 * Knowledge base connector.
+	 */
+	private KBConnector kbConnector;
+	
+	/**
+	 * Object store connector.
+	 */
+	private ObjectStoreConnector objectStoreConnector;
+	
+	/**
 	 * The logFile to put the availability.
 	 */
 	private String logFile;
@@ -109,7 +121,12 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	public AvailabilityMonitor () throws MalformedURLException {
 		this.monitoredResourceID = UUID.randomUUID().toString();
 		monitorName = "availability";
+
 		ddaConnector = DDAConnector.getInstance();
+		kbConnector = KBConnector.getInstance();
+		objectStoreConnector = ObjectStoreConnector.getInstance();
+		
+		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	/**

@@ -21,6 +21,8 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
+import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
+import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -180,6 +182,16 @@ public class JMXMonitor extends AbstractMonitor {
 	private DDAConnector ddaConnector;
 	
 	/**
+	 * Knowledge base connector.
+	 */
+	private KBConnector kbConnector;
+	
+	/**
+	 * Object store connector.
+	 */
+	private ObjectStoreConnector objectStoreConnector;
+	
+	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
@@ -194,8 +206,13 @@ public class JMXMonitor extends AbstractMonitor {
 	 */
 	public JMXMonitor(  ) throws MalformedURLException {
 		this.monitoredResourceID = UUID.randomUUID().toString();
-		ddaConnector = DDAConnector.getInstance();
 		monitorName = "jmx";
+		
+		ddaConnector = DDAConnector.getInstance();
+		kbConnector = KBConnector.getInstance();
+		objectStoreConnector = ObjectStoreConnector.getInstance();
+		
+		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 
 		try {
 			connectToOFBiz();

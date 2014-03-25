@@ -21,6 +21,8 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
+import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
+import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
 
 import java.io.File;
 import java.io.IOException;
@@ -86,6 +88,16 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	private DDAConnector ddaConnector;
 
 	/**
+	 * Knowledge base connector.
+	 */
+	private KBConnector kbConnector;
+	
+	/**
+	 * Object store connector.
+	 */
+	private ObjectStoreConnector objectStoreConnector;
+	
+	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
@@ -97,7 +109,12 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	public EC2SpotPriceMonitor () throws MalformedURLException {
 		this.monitoredResourceID = UUID.randomUUID().toString();
 		monitorName = "ec2-spotPrice";
+
 		ddaConnector = DDAConnector.getInstance();
+		kbConnector = KBConnector.getInstance();
+		objectStoreConnector = ObjectStoreConnector.getInstance();
+		
+		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
