@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<cost>
-	<accessKey>AKIAIE32APFMA4A6MORA</accessKey>
-	<secretKey>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</secretKey>
-	<instanceID>i-1dc70b52</instanceID>
-	<monitorPeriod>30000</monitorPeriod>
-	<metricName>EstimatedCharges</metricName>
-</cost>
