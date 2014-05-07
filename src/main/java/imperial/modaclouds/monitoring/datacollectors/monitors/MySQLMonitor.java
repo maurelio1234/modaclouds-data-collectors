@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,13 +17,15 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -33,17 +33,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.UUID;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -92,64 +84,99 @@ public class MySQLMonitor extends AbstractMonitor {
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
-
+	
 	/**
-	 * List of required monitoring metrics.
+	 * The metric list.
 	 */
-	private ArrayList<String> requiredMetric;
+	private List<Metric> metricList; 
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public MySQLMonitor() throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public MySQLMonitor() throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "mysql";
-		
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 
 	@Override
 	public void run() {
 
-		String query = "SHOW GLOBAL STATUS where ";
-
-		int numMetrics = 0;
-		for (String s : requiredMetric) {
-			if (numMetrics == 0) {
-				query = query + "Variable_name like '" + s + "'";
-			}
-			else {
-				query = query + "or Variable_name like '" + s + "'";
-			}
-			numMetrics++;
-		}
-
+		long startTime = 0;
+				
 		while (!sqlt.isInterrupted()) {
-			boolean isSent = false;
-			if (Math.random() < this.samplingProb) {
-				isSent = true;
+
+			if (System.currentTimeMillis() - startTime > 60000) {
+				
+				metricList = new ArrayList<Metric>();
+				
+				List<Integer> periodList = new ArrayList<Integer>();
+				
+				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+				for (KBEntity kbEntity: dcConfig) {
+					DataCollector dc = (DataCollector) kbEntity;
+					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
+
+						Metric temp = new Metric();
+
+						temp.setMetricName(dc.getCollectedMetric());
+						
+						Set<Parameter> parameters = dc.getParameters();
+
+						for (Parameter par: parameters) {
+							switch (par.getName()) {
+							case "samplingTime":
+								periodList.add(Integer.valueOf(par.getValue()));
+								break;
+							case "samplingProbability":
+								temp.setSamplingProb(Double.valueOf(par.getValue()));
+								break;
+							}
+						}
+						
+						metricList.add(temp);
+					}
+				}
+				
+				period = Collections.min(periodList);
+				startTime = System.currentTimeMillis();
 			}
+			
+			String query = "SHOW GLOBAL STATUS where ";
+
+			int numMetrics = 0;
+			for (Metric metric : metricList) {
+				if (numMetrics == 0) {
+					query = query + "Variable_name like '" + metric.getMetricName() + "'";
+				}
+				else {
+					query = query + "or Variable_name like '" + metric.getMetricName() + "'";
+				}
+				numMetrics++;
+			}
+
 			Long t0 = System.currentTimeMillis();
 			// TO FIX adding delay
 			PreparedStatement ps = null;
@@ -159,7 +186,6 @@ public class MySQLMonitor extends AbstractMonitor {
 				try {
 					ps = conDb.prepareStatement(query);
 				} catch (SQLException e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 				rs = ps.executeQuery(query);
@@ -168,17 +194,18 @@ public class MySQLMonitor extends AbstractMonitor {
 					String value = rs.getString("Value");
 
 					try {
-						if (isSent) {
-							ddaConnector.sendSyncMonitoringDatum(value, variableName, monitoredResourceID);
+						for (Metric metric: metricList) {
+							if (metric.getMetricName().equals(variableName)) {
+								if (Math.random() < metric.getSamplingProb()) {
+									ddaConnector.sendSyncMonitoringDatum(value, variableName, monitoredResourceID);
+								}
+							}
 						}
 					} catch (ServerErrorException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					} catch (StreamErrorException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					} catch (ValidationErrorException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 					//sendMonitoringDatum(Double.valueOf(value), ResourceFactory.createResource(MC.getURI() + variableName), monitoredResourceURL, monitoredResource);
@@ -208,50 +235,29 @@ public class MySQLMonitor extends AbstractMonitor {
 	@Override
 	public void start() {
 
-		requiredMetric = new ArrayList<String>();
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_MySQL.xml";
-			File file = new File(filePath);
+		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+		for (KBEntity kbEntity: dcConfig) {
+			DataCollector dc = (DataCollector) kbEntity;
+			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
 
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
+				Set<Parameter> parameters = dc.getParameters();
 
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("metricName");
-
-			for (int temp = 0; temp < nList.getLength(); temp++) {
-
-				Node nNode = nList.item(temp);
-
-				requiredMetric.add(nNode.getTextContent());
-			}
-
-			NodeList nList_jdbc = doc.getElementsByTagName("mysql-metric");
-
-			for (int i = 0; i < nList_jdbc.getLength(); i++) {
-
-				Node nNode = nList_jdbc.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-					JDBC_URL = eElement.getElementsByTagName("databaseAddress").item(0).getTextContent();
-					JDBC_NAME = eElement.getElementsByTagName("databaseUser").item(0).getTextContent();
-					JDBC_PASSWORD = eElement.getElementsByTagName("databasePassword").item(0).getTextContent();
-					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
+				for (Parameter par: parameters) {
+					switch (par.getName()) {
+					case "databaseAddress":
+						JDBC_URL = par.getValue();
+						break;
+					case "databaseUser":
+						JDBC_NAME = par.getValue();
+						break;
+					case "databasePassword":
+						JDBC_PASSWORD = par.getValue();
+						break;
+					}
 				}
+				break;
 			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} 
+		}
 
 		try {
 			Class.forName(JDBC_DRIVER);

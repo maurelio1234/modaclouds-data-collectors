@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.

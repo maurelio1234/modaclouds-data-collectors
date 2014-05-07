@@ -1,7 +1,5 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
+ * Copyright ${2014} Imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +20,9 @@ import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -36,22 +36,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -103,16 +93,16 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored resource ID.
@@ -122,16 +112,16 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public DetailedCostMonitor () throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public DetailedCostMonitor () throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "detailedCost";
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -140,57 +130,66 @@ public class DetailedCostMonitor extends AbstractMonitor{
 		String accessKeyId = null;
 
 		String secretKey = null;
+		
+		ObjectListing objects = null;
+		
+		AmazonS3Client s3Client = null;
 
-		cost_nonspot = new HashMap<String,Double>();
-
-		cost_spot = new HashMap<String,Double>();
-
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_DetailedCost.xml";
-			File file = new File(filePath);
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("detailedCost");
-
-			for (int i = 0; i < nList.getLength(); i++) {
-
-				Node nNode = nList.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					accessKeyId = eElement.getElementsByTagName("accessKey").item(0).getTextContent();
-					secretKey = eElement.getElementsByTagName("secretKey").item(0).getTextContent();
-					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
-					bucketName = eElement.getElementsByTagName("bucket").item(0).getTextContent();
-					filePath = eElement.getElementsByTagName("filePath").item(0).getTextContent();
-				}
-			}
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} 
-
-		AWSCredentials credentials = new BasicAWSCredentials(accessKeyId, secretKey);
-		AmazonS3Client s3Client = new AmazonS3Client(credentials);        
-
-		ObjectListing objects = s3Client.listObjects(bucketName);
-
-		String key = "aws-billing-detailed-line-items-with-resources-and-tags-";
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM");
-		String date = sdf.format(new Date());
-		key = key+date+".csv.zip";
+		String key = null;
+		
+		long startTime = 0;
 
 		while (!dcmt.isInterrupted()) {
+
+			if (System.currentTimeMillis() - startTime > 60000) {
+				
+				cost_nonspot = new HashMap<String,Double>();
+
+				cost_spot = new HashMap<String,Double>();
+
+				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+				for (KBEntity kbEntity: dcConfig) {
+					DataCollector dc = (DataCollector) kbEntity;
+					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("detailedCost")) {
+
+						Set<Parameter> parameters = dc.getParameters();
+
+						for (Parameter par: parameters) {
+							switch (par.getName()) {
+							case "accessKey":
+								accessKeyId = par.getValue();
+								break;
+							case "secretKey":
+								secretKey = par.getValue();
+								break;
+							case "bucketName":
+								bucketName = par.getValue();
+								break;
+							case "filePath":
+								filePath = par.getValue();
+								break;
+							case "samplingTime":
+								period = Integer.valueOf(par.getValue());
+								break;
+							}
+						}
+						break;
+					}
+				}
+				
+				startTime = System.currentTimeMillis();
+				
+				AWSCredentials credentials = new BasicAWSCredentials(accessKeyId, secretKey);
+				s3Client = new AmazonS3Client(credentials);     
+				
+				objects = s3Client.listObjects(bucketName);
+
+				key = "aws-billing-detailed-line-items-with-resources-and-tags-";
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM");
+				String date = sdf.format(new Date());
+				key = key+date+".csv.zip";
+
+			}
 
 			String fileName = null;
 			do {
@@ -292,17 +291,17 @@ public class DetailedCostMonitor extends AbstractMonitor{
 			for (Map.Entry<String, Double> entry : cost_nonspot.entrySet()) {
 				String key = entry.getKey();
 				Double value = entry.getValue();
-				
+
 				//System.out.println("Non spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "ApacheLog", monitoredResourceID);
+				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredResourceID);
 			}
-			
+
 			for (Map.Entry<String, Double> entry : cost_spot.entrySet()) {
 				String key = entry.getKey();
 				Double value = entry.getValue();
 
 				//System.out.println("Spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "ApacheLog", monitoredResourceID);
+				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredResourceID);
 			}
 		} catch (ServerErrorException e) {
 			e.printStackTrace();

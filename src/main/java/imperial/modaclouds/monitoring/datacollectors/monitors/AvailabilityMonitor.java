@@ -1,7 +1,5 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
+ * Copyright ${2014} Imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,19 +37,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -60,7 +49,9 @@ import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 /**
  * The monitoring collector for availability of VMs and applications.
@@ -102,7 +93,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
 	
 	/**
 	 * The logFile to put the availability.
@@ -117,16 +108,16 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public AvailabilityMonitor () throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public AvailabilityMonitor () throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "availability";
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
 		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	/**
@@ -181,6 +172,62 @@ public class AvailabilityMonitor extends AbstractMonitor{
 
 	@Override
 	public void run() {
+		
+		vms = new ArrayList<vmInfo>();
+
+		apps = new ArrayList<appInfo>();
+
+		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+		for (KBEntity kbEntity: dcConfig) {
+			DataCollector dc = (DataCollector) kbEntity;
+			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("availability")) {
+				
+				Set<Parameter> parameters = dc.getParameters();
+				
+				String type = null;
+				
+				String retryPeriod = null;
+				
+				String publicIP = null;
+				
+				for (Parameter par: parameters) {
+					switch (par.getName()) {
+						case "type":
+							type = par.getValue();
+							break;
+						case "retryPeriod":
+							retryPeriod = par.getValue();
+							break;
+						case "publicIP":
+							publicIP = par.getValue();
+							break;
+						case "logFile":
+							logFile = par.getValue();
+							break;
+						case "availabilityPeriod":
+							availabilityPeriod = Integer.valueOf(par.getValue());
+							break;
+					}
+				}
+				
+				if (type.equals("vm")) {
+					vmInfo vm = new vmInfo();
+					vm.retryPeriod = Integer.valueOf(retryPeriod);
+					vm.publicIP = publicIP;
+					
+					vms.add(vm);
+				}
+				if (type.equals("app")) {
+					appInfo app = new appInfo();
+					app.retryPeriod = Integer.valueOf(retryPeriod);
+					app.url = publicIP;
+					
+					apps.add(app);
+				}
+				
+				break;
+			}
+		}
 
 		initialize();
 		
@@ -553,83 +600,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	@Override
 	public void start() {
 		avmt = new Thread( this, "avm-mon");		
-		
-		vms = new ArrayList<vmInfo>();
-
-		apps = new ArrayList<appInfo>();
-
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_Availability.xml";
-			File file = new File(filePath);
-
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-
-			doc.getDocumentElement().normalize();
-			
-			NodeList nList = doc.getElementsByTagName("availability");
-
-			for (int i = 0; i < nList.getLength(); i++) {
-
-				Node nNode = nList.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					logFile = eElement.getElementsByTagName("logFile").item(0).getTextContent();
-					availabilityPeriod = Long.valueOf(eElement.getElementsByTagName("availabilityPeriod").item(0).getTextContent());
-				}
-			}
-
-			NodeList nList_vm = doc.getElementsByTagName("vm");
-
-			for (int i = 0; i < nList_vm.getLength(); i++) {
-
-				Node nNode = nList_vm.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					vmInfo vm = new vmInfo();
-
-					vm.retryPeriod = Integer.valueOf(eElement.getElementsByTagName("retryPeriod").item(0).getTextContent());
-					vm.publicIP = eElement.getElementsByTagName("publicIP").item(0).getTextContent();
-
-					vms.add(vm);
-				}
-			}
-
-			NodeList nList_app = doc.getElementsByTagName("app");
-
-			for (int i = 0; i < nList_app.getLength(); i++) {
-
-				Node nNode = nList_app.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					appInfo app = new appInfo();
-
-					app.retryPeriod = Integer.valueOf(eElement.getElementsByTagName("retryPeriod").item(0).getTextContent());
-					app.url = eElement.getElementsByTagName("url").item(0).getTextContent();
-
-					apps.add(app);
-				}
-			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
+				
 		Properties log4jProperties = new Properties();
 		log4jProperties.setProperty("log4j.rootLogger", "INFO, file");
 		log4jProperties.setProperty("log4j.appender.file", "org.apache.log4j.RollingFileAppender");

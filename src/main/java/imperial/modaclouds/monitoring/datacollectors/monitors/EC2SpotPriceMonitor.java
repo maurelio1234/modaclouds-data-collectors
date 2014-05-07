@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,26 +20,16 @@ import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
-import java.util.UUID;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.util.Set;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -91,12 +79,16 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
+	/**
+	 * The sampling probability
+	 */
+	private double samplingProb;
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
-	
+	//private ObjectStoreConnector objectStoreConnector;
+
 	/**
 	 * The unique monitored resource ID.
 	 */
@@ -105,16 +97,16 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public EC2SpotPriceMonitor () throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public EC2SpotPriceMonitor () throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "ec2-spotPrice";
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -124,72 +116,70 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 
 		String secretKey = null;
 
-		spotInstanceVec = new ArrayList<SpotInstance>();
-
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_SpotPrice.xml";
-			File file = new File(filePath);
-
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("spotPrice");
-
-			for (int i = 0; i < nList.getLength(); i++) {
-
-				Node nNode = nList.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					accessKeyId = eElement.getElementsByTagName("accessKey").item(0).getTextContent();
-					secretKey = eElement.getElementsByTagName("secretKey").item(0).getTextContent();
-					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
-					//maxResult = Integer.valueOf(eElement.getElementsByTagName("maxResult").item(0).getTextContent());
-					//String startTime_str = eElement.getElementsByTagName("startTime").item(0).getTextContent();
-					//SimpleDateFormat sdf = new SimpleDateFormat("dd-M-yyyy");
-					//startTime = sdf.parse(startTime_str);
-				}
-			}
-
-			NodeList nList_instance = doc.getElementsByTagName("instance");
-
-			for (int temp = 0; temp < nList_instance.getLength(); temp++) {
-
-				Node nNode = nList_instance.item(temp);
-				SpotInstance spotInstance = new SpotInstance();
-				spotInstance.productDes = new ArrayList<String>();
-				spotInstance.instanceType = new ArrayList<String>();
-
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					spotInstance.endpoint = eElement.getElementsByTagName("endPoint").item(0).getTextContent();
-					spotInstance.productDes.add(eElement.getElementsByTagName("productDescription").item(0).getTextContent());
-					spotInstance.instanceType.add(eElement.getElementsByTagName("instanceType").item(0).getTextContent());
-				}	
-				spotInstanceVec.add(spotInstance);
-			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} 
-
-		AWSCredentials credentials = new BasicAWSCredentials(accessKeyId, secretKey);
-		AmazonEC2 ec2 = new AmazonEC2Client(credentials);
+		long startTime = 0;
 
 		while (!spmt.isInterrupted()) {
+
+			if (System.currentTimeMillis() - startTime > 60000) {
+				spotInstanceVec = new ArrayList<SpotInstance>();
+
+				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+				for (KBEntity kbEntity: dcConfig) {
+					DataCollector dc = (DataCollector) kbEntity;
+					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ec2-spotPrice")) {
+
+						Set<Parameter> parameters = dc.getParameters();
+
+						String endpoint = null;
+						String productDes = null;
+						String instanceType = null;
+
+						for (Parameter par: parameters) {
+							switch (par.getName()) {
+							case "accessKey":
+								accessKeyId = par.getValue();
+								break;
+							case "secretKey":
+								secretKey = par.getValue();
+								break;
+							case "endPoint":
+								endpoint = par.getValue();
+								break;
+							case "productDescription":
+								productDes = par.getValue();
+								break;
+							case "instanceType":
+								instanceType = par.getValue();
+								break;
+							case "samplingTime":
+								period = Integer.valueOf(par.getValue());
+								break;
+							case "samplingProbability":
+								samplingProb = Double.valueOf(par.getValue());
+								break;
+							}
+						}
+
+						SpotInstance spotInstance = new SpotInstance();
+						spotInstance.productDes = new ArrayList<String>();
+						spotInstance.instanceType = new ArrayList<String>();
+
+						spotInstance.endpoint = endpoint;
+						spotInstance.productDes.add(productDes);
+						spotInstance.instanceType.add(instanceType);
+
+						spotInstanceVec.add(spotInstance);
+						break;
+					}
+				}
+				startTime = System.currentTimeMillis();
+			}
+
+			AWSCredentials credentials = new BasicAWSCredentials(accessKeyId, secretKey);
+			AmazonEC2 ec2 = new AmazonEC2Client(credentials);
+
+			//////
+
 			boolean isSent = false;
 			if (Math.random() < this.samplingProb) {
 				isSent = true;

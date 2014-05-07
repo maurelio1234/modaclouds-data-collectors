@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,29 +20,23 @@ import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 import java.io.BufferedReader;
-import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.util.Set;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -127,24 +119,29 @@ public class CollectlMonitor extends AbstractMonitor {
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
+	
+	/**
+	 * The sampling probability.
+	 */
+	private double samplingProb;
 
 
 	/**
 	 * Constructor of the class.
 	 *
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public CollectlMonitor() throws MalformedURLException 
+	public CollectlMonitor() throws MalformedURLException, FileNotFoundException 
 	{
-		this.monitoredResourceID = UUID.randomUUID().toString();
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "collectl";
 		
 		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
+		kbConnector = KBConnector.getInstance();		
 		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -154,11 +151,40 @@ public class CollectlMonitor extends AbstractMonitor {
 			client = new Socket(serverIP, 2655);
 			BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
+			long startTime = 0;
+			
 			// correspond to command: collectl -scndm --verbose -A server
 			while(!colt.isInterrupted()) 
 			{
+				if (System.currentTimeMillis() - startTime > 60000) {
+					ArrayList<String> requiredMetric = new ArrayList<String>();
+										
+					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+					for (KBEntity kbEntity: dcConfig) {
+						DataCollector dc = (DataCollector) kbEntity;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+											
+							requiredMetric.add(dc.getCollectedMetric());
+							
+							Set<Parameter> parameters = dc.getParameters();
+							
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+									case "samplingProbability":
+										samplingProb = Double.valueOf(par.getValue());
+										break;
+								}
+							}
+						}
+					}
+
+					metricPair = parseMetrics(requiredMetric);
+					
+					startTime = System.currentTimeMillis();
+				}
+				
 				boolean isSent = false;
-				if (Math.random() < this.samplingProb) {
+				if (Math.random() < samplingProb) {
 					isSent = true;
 				}
 				String fromServer;
@@ -389,49 +415,35 @@ public class CollectlMonitor extends AbstractMonitor {
 	@Override
 	public void start() {
 		ArrayList<String> requiredMetric = new ArrayList<String>();
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_Collectl.xml";
-			File file = new File(filePath);
-
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("metricName");
-
-			for (int temp = 0; temp < nList.getLength(); temp++) {
-
-				Node nNode = nList.item(temp);
-
-				requiredMetric.add(nNode.getTextContent());
-			}
-
-			NodeList nList_period = doc.getElementsByTagName("collectl-metric");
-
-			for (int i = 0; i < nList_period.getLength(); i++) {
-
-				Node nNode = nList_period.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					serverIP = eElement.getElementsByTagName("serverIP").item(0).getTextContent();
-					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
+		
+		List<Integer> periodList = new ArrayList<Integer>();
+		
+		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+		for (KBEntity kbEntity: dcConfig) {
+			DataCollector dc = (DataCollector) kbEntity;
+			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+								
+				requiredMetric.add(dc.getCollectedMetric());
+				
+				Set<Parameter> parameters = dc.getParameters();
+				
+				for (Parameter par: parameters) {
+					switch (par.getName()) {
+						case "serverIP":
+							serverIP = par.getValue();
+							break;
+						case "samplingTime":
+							periodList.add(Integer.valueOf(par.getValue()));
+							break;
+						case "samplingProbability":
+							samplingProb = Double.valueOf(par.getValue());
+							break;
+					}
 				}
 			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 
+		period = Collections.min(periodList);
 		metricPair = parseMetrics(requiredMetric);
 		//start collectl if collectl has not started yet
 		boolean isRunning = false;

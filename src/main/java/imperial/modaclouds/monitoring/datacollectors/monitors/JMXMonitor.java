@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,46 +17,41 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
 import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryPoolMXBean;
+import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
+import java.util.Set;
 
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
-import com.sun.management.OperatingSystemMXBean;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
-import com.thoughtworks.xstream.XStream;
 
 
 /**
@@ -137,65 +130,34 @@ public class JMXMonitor extends AbstractMonitor {
 	boolean isInit = false;
 
 	/**
-	 * Define CPU monitor as number 1.
-	 */
-	private static final int CPU = 1;
-
-	/**
-	 * Define memory monitor as number 2.
-	 */
-	private static final int MEMORY = 2;
-
-	/**
-	 * Define memory pool monitor as number 3.
-	 */
-	private static final int MEMORYPOOL = 3;
-
-	/**
-	 * Define thread monitor as number 4.
-	 */
-	private static final int THREAD = 4;
-
-	/**
-	 * Define ofbiz object monitor as number 5.
-	 */
-	private static final int BIZOBJ = 5;
-
-	/**
-	 * Define run time monitor as number 6.
-	 */
-	private static final int RUNTIME = 6;
-
-	/**
 	 * JMX monitor thread.
 	 */
 	private Thread jmxt;
 
 	/**
-	 * The reflection class mapped from xml file.
-	 */
-	private ReflectionXML reflectionXML;
-	
-	/**
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
 	private ObjectStoreConnector objectStoreConnector;
-	
+
 	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
 
+	/**
+	 * The metric list.
+	 */
+	private List<Metric> metricList; 
 
 	/**
 	 * Constructor of the class.
@@ -203,16 +165,16 @@ public class JMXMonitor extends AbstractMonitor {
 	 * @param connectorAddress JMX connector address
 	 * @param measure Monitoring measure
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public JMXMonitor(  ) throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public JMXMonitor(  ) throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "jmx";
-		
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 
 		try {
 			connectToOFBiz();
@@ -261,8 +223,10 @@ public class JMXMonitor extends AbstractMonitor {
 			//				instances++;
 			//			}
 			if( vd.displayName().matches( ".*.jar" ) ) {
-				pid = vd.id();
-				instances++;
+				if (!vd.displayName().contains("dcs")) {
+					pid = vd.id();
+					instances++;
+				}
 			}
 		}
 
@@ -319,325 +283,108 @@ public class JMXMonitor extends AbstractMonitor {
 		remote = connector.getMBeanServerConnection();
 
 	}
-	@SuppressWarnings("unchecked")
+
 	@Override
 	public void run() {
-		try {
-			setConnector();
-			setMBeans();
-		} catch (Exception e1) {
-			e1.printStackTrace();
-		}
 
-		long processCpuTime = 0;
-		long systemTime = 0;
-		Long t0 = 0L;
-		int toRun = 0;
-		Map<Integer, Integer> resolution = new HashMap<Integer, Integer>();
-		Map<Integer, Long> lastMonitorTime = new HashMap<Integer, Long>();
+		long startTime = 0;
 
-		//read xml file into the ReflectionXML object
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_JMX.xml";
-			File file = new File(filePath);
+		List<Integer> period = null;
+		
+		List<Integer> nextPauseTime = null;
 
-			XStream xstream = new XStream();
-			xstream.autodetectAnnotations(true);
-			xstream.processAnnotations(ReflectionXML.class);
+		while (!jmxt.isInterrupted()) {
 
-			InputStream inputStream = new FileInputStream(file);
+			if (System.currentTimeMillis() - startTime > 60000) {
 
-			reflectionXML = (ReflectionXML)xstream.fromXML(inputStream);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}		
+				period = new ArrayList<Integer>();
+				nextPauseTime = new ArrayList<Integer>();
 
-		//create method
-		Map<Integer, Map<String, ArrayList<Method>>> categoryList = new HashMap<Integer, Map<String, ArrayList<Method>>>();
+				metricList = new ArrayList<Metric>();
 
-		ArrayList<ReflectionCateogry> listOfCategory = reflectionXML.getListOfCategory();
-		for (int i = 0; i < listOfCategory.size(); i++) {
-			String category = listOfCategory.get(i).getCategoryName();
-			Map<String, ArrayList<Method>> metrics = new HashMap<String, ArrayList<Method>>();
+				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 
-			ArrayList<ReflectionMetric> listOfMetrics = listOfCategory.get(i).getListOfMetrics();
-			for (int j = 0; j < listOfMetrics.size() ; j++) {
-				String metricName = listOfMetrics.get(j).getMetricName();
-				ArrayList<Method> functions = new ArrayList<Method>();
+				for (KBEntity kbEntity: dcConfig) {
+					DataCollector dc = (DataCollector) kbEntity;
 
-				ArrayList<ReflectionFunction> listOfFunctions = listOfMetrics.get(j).getListOfFunctions();				
-				for (int k = 0; k < listOfFunctions.size(); k++) {
-					String className = listOfFunctions.get(k).getClassName();
-					String methodName = listOfFunctions.get(k).getFunctionName();
+					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("jmx")) {
+						Metric temp = new Metric();
 
-					try {
-						functions.add(Class.forName(className).getMethod(methodName));
-					} catch (NoSuchMethodException e) {
-						e.printStackTrace();
-					} catch (SecurityException e) {
-						e.printStackTrace();
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
+						temp.setMetricName(dc.getCollectedMetric());
+
+						Set<Parameter> parameters = dc.getParameters();
+
+						for (Parameter par: parameters) {
+							switch (par.getName()) {
+							case "samplingTime":
+								period.add(Integer.valueOf(par.getValue()));
+								nextPauseTime.add(Integer.valueOf(par.getValue()));
+								break;
+							case "samplingProbability":
+								temp.setSamplingProb(Double.valueOf(par.getValue()));
+								break;
+							}
+						}
+
+						metricList.add(temp);
 					}
 				}
-				metrics.put(metricName, functions);
+
+				startTime = System.currentTimeMillis();
 			}
-			switch (category) {
-			case "CPU":
-				categoryList.put(CPU, metrics);
-				resolution.put(CPU, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = CPU;
 
-				if (osMBean == null) {
-					try {
-						osMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
-								ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME,
-								OperatingSystemMXBean.class );
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-				break;
-			case "Memory":
-				categoryList.put(MEMORY, metrics);
-				resolution.put(MEMORY, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = MEMORY;
+			int toSleep = Collections.min(nextPauseTime);
+			int index = nextPauseTime.indexOf(toSleep);
 
-				if (memoryMBean == null) {
-					try {
-						memoryMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
-								ManagementFactory.MEMORY_MXBEAN_NAME, MemoryMXBean.class );
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-				break;
-			case "MemoryPool":
-				categoryList.put(MEMORYPOOL, metrics);
-				resolution.put(MEMORYPOOL, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = MEMORYPOOL;
+			try {
+				Thread.sleep(Math.max(toSleep, 0));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 
-				if (memoryPoolMBeans == null) {
-					memoryPoolMBeans = ManagementFactory.getMemoryPoolMXBeans();
-				}
-				break;
-			case "Thread":
-				categoryList.put(THREAD, metrics);
-				resolution.put(THREAD, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = THREAD;
+			long t0 = System.currentTimeMillis();
 
-				if (threadMBean == null) {
-					try {
-						threadMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
-								ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class );
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-				break;
-			case "BizObj":
-				categoryList.put(BIZOBJ, metrics);
-				resolution.put(BIZOBJ, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = BIZOBJ;
-				break;
-			case "RunTime":
-				categoryList.put(RUNTIME, metrics);
-				resolution.put(RUNTIME, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = RUNTIME;
+			double value = 0;
 
-				if (remoteRuntime == null) {
-					remoteRuntime = ManagementFactory.getRuntimeMXBean();
-				}
+			switch (metricList.get(index).getMetricName().toLowerCase()) {
+			case "peakthreadcount":
+				value = threadMBean.getPeakThreadCount();
+				break;
+			case "heapmemoryused":
+				value = memoryMBean.getHeapMemoryUsage().getUsed();
+				break;
+			case "uptime":
+				value = remoteRuntime.getUptime();
 				break;
 			}
-		}
 
-		boolean isInitial = true;
-		//run
-		while (!jmxt.isInterrupted()) {		
+
 			boolean isSent = false;
-			if (Math.random() < this.samplingProb) {
+			if (Math.random() < metricList.get(index).getSamplingProb()) {
 				isSent = true;
 			}
-			for (Map.Entry<Integer, Map<String, ArrayList<Method>>> entry : categoryList.entrySet()) {
-				Integer key = entry.getKey();
-				if (!isInitial && key != toRun) {
-					continue;
-				}
-				//pre-process
-				Object instance = null;
-				switch (key) {
-				case CPU:
-					instance = osMBean;
-					break;
-				case MEMORY:
-					instance = memoryMBean;
-					break;
-				case MEMORYPOOL:
-					instance = memoryPoolMBeans;
-					break;
-				case THREAD:
-					instance = threadMBean;
-					break;
-				case RUNTIME:
-					instance = remoteRuntime;
-					break;
-				}
 
-				//invoke
-				Map<String, ArrayList<Method>> value = entry.getValue();
-
-				t0 = System.currentTimeMillis(); // invoke time
-
-				lastMonitorTime.put(key, t0);
-
-				for (Map.Entry<String, ArrayList<Method>> sub_entry : value.entrySet()) {
-					ArrayList<Method> sub_methods = sub_entry.getValue();
-
-					Object metric_value = null;
-
-					try{
-						if (instance.getClass() == ArrayList.class) {
-							metric_value = new HashMap<String, Object>();
-							for(Object object : (ArrayList<Object>) instance){
-								Object temp = null;
-								for (int i = 1; i < sub_methods.size(); i++) {
-									if (i == 1) {
-										temp = sub_methods.get(i).invoke(object);
-									}
-									else {
-										temp = sub_methods.get(i).invoke(temp);
-									}
-								}
-								//memberid, should be the first method
-								String listMemberID = (String) sub_methods.get(0).invoke(object);
-								((HashMap<String, Object>) metric_value).put(listMemberID, temp);
-							}
-						}
-						else {
-							for (int i = 0; i < sub_methods.size(); i++) {
-								if (i == 0) {
-									metric_value = sub_methods.get(i).invoke(instance);
-								}
-								else {
-									metric_value = sub_methods.get(i).invoke(metric_value);
-								}		    			
-							}
-						}
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-
-					try {
-						//process
-						switch (key) {
-						case CPU:
-							availableProcessors = osMBean.getAvailableProcessors();
-							processCpuTime = (Long) metric_value;
-							systemTime = System.nanoTime();
-
-							double cpuUsage = ( double ) ( processCpuTime - lastProcessCpuTime ) / ( systemTime - lastSystemTime );			
-
-							if (isSent){
-								ddaConnector.sendSyncMonitoringDatum(String.valueOf(cpuUsage / availableProcessors), sub_entry.getKey(), monitoredResourceID);
-							}
-							//sendMonitoringDatum(cpuUsage / availableProcessors, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-							break;
-						case MEMORY:
-							if (isSent) {
-								ddaConnector.sendSyncMonitoringDatum(String.valueOf(metric_value), sub_entry.getKey(), monitoredResourceID);
-							}
-							//sendMonitoringDatum((Double)metric_value, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-							break;
-						case MEMORYPOOL:
-							if (metric_value.getClass() == HashMap.class) {
-								for (Map.Entry<String, Object> elementEntry : ((HashMap<String, Object>) metric_value).entrySet()) {
-									if (isSent){
-										ddaConnector.sendSyncMonitoringDatum(String.valueOf(elementEntry.getValue()), sub_entry.getKey() + elementEntry.getKey(), monitoredResourceID);
-									}
-										//sendMonitoringDatum((Double)(elementEntry.getValue()), ResourceFactory.createResource(MC.getURI() + sub_entry.getKey() + elementEntry.getKey()), monitoredResourceURL, monitoredResource);
-								}
-							}
-							break;
-						case THREAD:
-							if (isSent) {
-								ddaConnector.sendSyncMonitoringDatum(String.valueOf(metric_value), sub_entry.getKey(), monitoredResourceID);
-							}
-							//sendMonitoringDatum((Double)metric_value, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-							break;
-						case BIZOBJ:
-							if (isSent) {
-								ddaConnector.sendSyncMonitoringDatum(String.valueOf(metric_value), sub_entry.getKey(), monitoredResourceID);
-							}
-							//sendMonitoringDatum((Double)metric_value, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-							break;
-						case RUNTIME:
-							if (isSent) {
-								ddaConnector.sendSyncMonitoringDatum(String.valueOf(metric_value), sub_entry.getKey(), monitoredResourceID);
-							}
-								//sendMonitoringDatum((Double)metric_value, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-							break;
-						}
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
-						e.printStackTrace();
-					} 
-
-				}
-
-				//post-process
-				switch (key) {
-				case CPU:
-					lastSystemTime = systemTime;
-					lastProcessCpuTime = processCpuTime;
-					break;
-				case MEMORY:
-					break;
-				case MEMORYPOOL:
-					break;
-				case THREAD:
-					break;
-				case RUNTIME:
-					break;
-				}
-			}
-			isInitial = false;
-
-			Long t1 = System.currentTimeMillis(); //finish time
 			try {
-				Map<Integer, Long> timeToSleep = new HashMap<Integer, Long>();
-
-				long min = 0;
-				for (Map.Entry<Integer, Integer> entry : resolution.entrySet()) {
-					timeToSleep.put(entry.getKey(), entry.getValue()-(t1-lastMonitorTime.get(entry.getKey())));
-					min = timeToSleep.get(entry.getKey());
-					toRun = entry.getKey();
+				if (isSent) {
+					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredResourceID);
 				}
-
-				for (Map.Entry<Integer, Long> entry : timeToSleep.entrySet()) {
-					if (entry.getValue() < min) {
-						min = entry.getValue();
-						toRun = entry.getKey();
-					}
-				}
-				Thread.sleep(Math.max(min, 0));
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				break;
+			} catch (ServerErrorException e) {
+				e.printStackTrace();
+			} catch (StreamErrorException e) {
+				e.printStackTrace();
+			} catch (ValidationErrorException e) {
+				e.printStackTrace();
 			}
+
+			long t1 = System.currentTimeMillis();
+
+			for (int i = 0; i < nextPauseTime.size(); i++) {
+				nextPauseTime.set(i, Math.max(0, Integer.valueOf(nextPauseTime.get(i)-toSleep-(int)(t1-t0))));
+			}
+			nextPauseTime.set(index,period.get(index));
 		}
+
+
 	}
 
 	@Override
@@ -646,7 +393,34 @@ public class JMXMonitor extends AbstractMonitor {
 	}
 
 	@Override
-	public void init() {		
+	public void init() {
+		
+		try {
+			setConnector();
+			setMBeans();
+		} catch (Exception e1) {
+			e1.printStackTrace();
+		}
+		
+		try {
+			osMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
+					ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME,
+					OperatingSystemMXBean.class );
+
+			memoryMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
+					ManagementFactory.MEMORY_MXBEAN_NAME, MemoryMXBean.class );
+
+			memoryPoolMBeans = ManagementFactory.getMemoryPoolMXBeans();
+
+			threadMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
+					ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class );
+
+			remoteRuntime = ManagementFactory.getRuntimeMXBean();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
 		jmxt.start();
 		System.out.println("JMX monitor running!");
 	}

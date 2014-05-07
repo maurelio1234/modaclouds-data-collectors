@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -23,26 +21,18 @@ import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
 import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.UUID;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.util.Set;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -89,11 +79,6 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	private class VmDetail {
 
 		/**
-		 * The instance ID of the VM.
-		 */
-		public String instanceID;
-
-		/**
 		 * The public IP of the VM.
 		 */
 		public String publicIP;
@@ -137,16 +122,16 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public StartupTimeMonitor () throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public StartupTimeMonitor () throws MalformedURLException, FileNotFoundException {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "startupTime";
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -154,55 +139,39 @@ public class StartupTimeMonitor extends AbstractMonitor{
 
 		vms = new ArrayList<VmDetail>();
 
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_Startup.xml";
-			File file = new File(filePath);
-
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
-
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("vm");
-
-			for (int i = 0; i < nList.getLength(); i++) {
-
-				Node nNode = nList.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					VmDetail vm = new VmDetail();
-
-					vm.connectTimeout = Integer.valueOf(eElement.getElementsByTagName("connectTimeout").item(0).getTextContent());
-					vm.userName = eElement.getElementsByTagName("userName").item(0).getTextContent();
-					vm.publicIP = eElement.getElementsByTagName("publicIP").item(0).getTextContent();
-					vm.instanceID = eElement.getElementsByTagName("instanceID").item(0).getTextContent();
-					vm.launchTime = eElement.getElementsByTagName("launchTime").item(0).getTextContent();;
-					vm.isSpot = eElement.getElementsByTagName("isSpot").item(0).getTextContent().equals("true");	
-
-					if (eElement.getElementsByTagName("keyFile").item(0)!=null){
-						vm.keyFile = eElement.getElementsByTagName("keyFile").item(0).getTextContent();
+		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+		for (KBEntity kbEntity: dcConfig) {
+			DataCollector dc = (DataCollector) kbEntity;
+			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("startupTime")) {
+				
+				dc.getTargetResources();
+				
+				//CollectedMetric = dc.getCollectedMetric();
+				
+				Set<Parameter> parameters = dc.getParameters();
+				VmDetail vm = new VmDetail();
+				
+				for (Parameter par: parameters) {
+					switch (par.getName()) {
+						case "connectTimeout":
+							vm.connectTimeout = Integer.valueOf(par.getValue());
+							break;
+						case "userName":
+							vm.userName = par.getValue();
+							break;	
+						case "publicIP":
+							vm.publicIP = par.getValue();
+							break;
+						case "launchTime":
+							vm.launchTime = par.getValue();
+							break;
+						case "isSpot":
+							vm.isSpot = Boolean.valueOf(par.getValue());
+							break;
 					}
-					
-					if (eElement.getElementsByTagName("password").item(0)!=null){
-						vm.password = eElement.getElementsByTagName("password").item(0).getTextContent();
-					}
-					
-					vms.add(vm);			
-
 				}
+				break;
 			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 
 		analyseVms();

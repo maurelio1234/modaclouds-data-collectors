@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -19,31 +17,26 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * The monitoring collector for Sigar.
@@ -61,254 +54,155 @@ public class SigarMonitor extends AbstractMonitor {
 	private Thread sigt;
 
 	/**
-	 * Define CPU monitor as number 1.
-	 */
-	private static final int CPU = 1;
-
-	/**
-	 * Define memory monitor as number 2.
-	 */
-	private static final int MEMORY = 2;
-
-	/**
-	 * Define network monitor as number 3.
-	 */
-	private static final int NETWORK = 3;
-
-	/**
-	 * Define thread monitor as number 4.
-	 */
-	private static final int THREAD = 4;
-
-	/**
-	 * The category name.
-	 */
-	//private static final String[] category_name = {"CPU","Memory","Network","Thread"};
-
-	/**
-	 * The reflection class mapped from xml file.
-	 */
-	private ReflectionXML reflectionXML;
-
-	/**
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
 
+	/**
+	 * The metric list.
+	 */
+	private List<Metric> metricList; 
 
 	/**
 	 * Constructor of the class.
 	 *
 	 * @param measure Monitoring measure
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public SigarMonitor(  ) throws MalformedURLException {
-		this.monitoredResourceID = UUID.randomUUID().toString();
-		monitorName = "sigar";
+	public SigarMonitor(  ) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = UUID.randomUUID().toString();
 		
+		this.monitoredResourceID = "FrontendVM";
+		monitorName = "sigar";
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
 	public void run() {
 
-		Long t0 = 0L;
-		int toRun = 0;
-		Map<Integer, Integer> resolution = new HashMap<Integer, Integer>();
-		Map<Integer, Long> lastMonitorTime = new HashMap<Integer, Long>();
+		long startTime = 0;
 
-		//read xml file into the ReflectionXML object
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_SIGAR.xml";
-			File file = new File(filePath);
+		List<Integer> period = null;
 
-			XStream xstream = new XStream();
-			xstream.autodetectAnnotations(true);
-			xstream.processAnnotations(ReflectionXML.class);
+		List<Integer> nextPauseTime = null;
 
-			InputStream inputStream = new FileInputStream(file);
+		while (!sigt.isInterrupted()) {
 
-			reflectionXML = (ReflectionXML)xstream.fromXML(inputStream);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
+			if (System.currentTimeMillis() - startTime > 60000) {
 
-		//create method
-		Map<Integer, Map<String, ArrayList<Method>>> categoryList = new HashMap<Integer, Map<String, ArrayList<Method>>>();
+				period = new ArrayList<Integer>();
+				nextPauseTime = new ArrayList<Integer>();
 
-		ArrayList<ReflectionCateogry> listOfCategory = reflectionXML.getListOfCategory();
-		for (int i = 0; i < listOfCategory.size(); i++) {
-			String category = listOfCategory.get(i).getCategoryName();
-			Map<String, ArrayList<Method>> metrics = new HashMap<String, ArrayList<Method>>();
+				metricList = new ArrayList<Metric>();
 
-			ArrayList<ReflectionMetric> listOfMetrics = listOfCategory.get(i).getListOfMetrics();
-			for (int j = 0; j < listOfMetrics.size() ; j++) {
-				String metricName = listOfMetrics.get(j).getMetricName();
-				ArrayList<Method> functions = new ArrayList<Method>();
+				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 
-				ArrayList<ReflectionFunction> listOfFunctions = listOfMetrics.get(j).getListOfFunctions();				
-				for (int k = 0; k < listOfFunctions.size(); k++) {
-					String className = listOfFunctions.get(k).getClassName();
-					String methodName = listOfFunctions.get(k).getFunctionName();
+				for (KBEntity kbEntity: dcConfig) {
+					DataCollector dc = (DataCollector) kbEntity;
+					
+					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
+						Metric temp = new Metric();
 
-					try {
-						functions.add(Class.forName(className).getMethod(methodName));
-					} catch (NoSuchMethodException e) {
-						e.printStackTrace();
-					} catch (SecurityException e) {
-						e.printStackTrace();
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
+						temp.setMetricName(dc.getCollectedMetric());
+						
+						Set<Parameter> parameters = dc.getParameters();
+
+						for (Parameter par: parameters) {
+							switch (par.getName()) {
+							case "samplingTime":
+								period.add(Integer.valueOf(par.getValue()));
+								nextPauseTime.add(Integer.valueOf(par.getValue()));
+								break;
+							case "samplingProbability":
+								temp.setSamplingProb(Double.valueOf(par.getValue()));
+								break;
+							}
+						}
+
+						metricList.add(temp);
 					}
 				}
-				metrics.put(metricName, functions);
+
+				startTime = System.currentTimeMillis();
 			}
-			switch (category) {
-			case "CPU":
-				categoryList.put(CPU, metrics);
-				resolution.put(CPU, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = CPU;
-				break;
-			case "Memory":
-				categoryList.put(MEMORY, metrics);
-				resolution.put(MEMORY, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = MEMORY;
-				break;
-			case "Network":
-				categoryList.put(NETWORK, metrics);
-				resolution.put(NETWORK, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = NETWORK;
-				break;
-			case "Thread":
-				categoryList.put(THREAD, metrics);
-				resolution.put(THREAD, Integer.valueOf(listOfCategory.get(i).getResolution()));
-				toRun = THREAD;
 
-				break;
+
+
+			int toSleep = Collections.min(nextPauseTime);
+			int index = nextPauseTime.indexOf(toSleep);
+
+			try {
+				Thread.sleep(Math.max(toSleep, 0));
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
-		}
 
+			long t0 = System.currentTimeMillis();
 
-		boolean isInitial = true;
-		//run
-		while (!sigt.isInterrupted()) {	
+			double value = 0;
+
+			try {
+				switch (metricList.get(index).getMetricName().toLowerCase()) {
+				case "cpuutilization":
+					value = 1 - sigar.getCpuPerc().getIdle();
+					break;
+				case "cpustolen":
+					value = sigar.getCpuPerc().getStolen();
+					break;
+				case "memoryused":
+					value = sigar.getMem().getActualUsed();
+					break;
+				}
+			} catch (SigarException e) {
+				e.printStackTrace();
+			}
+
 			boolean isSent = false;
-			if (Math.random() < this.samplingProb) {
+			if (Math.random() < metricList.get(index).getSamplingProb()) {
 				isSent = true;
 			}
-			for (Map.Entry<Integer, Map<String, ArrayList<Method>>> entry : categoryList.entrySet()) {
-				Integer key = entry.getKey();
-				if (!isInitial && key != toRun) {
-					continue;
-				}
-				//pre-process
-				Object instance = null;
-				try {
-					switch (key) {
-					case CPU:
-						instance = sigar.getCpuPerc();
-						break;
-					case MEMORY:
-						instance = sigar.getMem();
-						break;
-					case NETWORK:
-						instance = sigar.getNetStat();
-						break;
-					case THREAD:
-						instance = sigar.getProcStat();
-						break;
-					}
-				} catch (SigarException e1) {
-					e1.printStackTrace();
-				}
-				//invoke
-				Map<String, ArrayList<Method>> value = entry.getValue();
 
-				t0 = System.currentTimeMillis(); // invoke time
-
-				lastMonitorTime.put(key, t0);
-
-				for (Map.Entry<String, ArrayList<Method>> sub_entry : value.entrySet()) {
-					ArrayList<Method> sub_methods = sub_entry.getValue();
-
-					Object metric_value = null;
-
-					try{
-						for (int i = 0; i < sub_methods.size(); i++) {
-							if (i == 0) {
-								metric_value = sub_methods.get(i).invoke(instance);
-							}
-							else {
-								metric_value = sub_methods.get(i).invoke(metric_value);
-							}		    			
-						}
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (InvocationTargetException e) {
-						e.printStackTrace();
-					}
-					//process
-					try {
-						if (isSent) {
-							ddaConnector.sendSyncMonitoringDatum(String.valueOf(metric_value), sub_entry.getKey(), monitoredResourceID);
-						}
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
-						e.printStackTrace();
-					}
-					//sendMonitoringDatum((Double)metric_value, ResourceFactory.createResource(MC.getURI() + sub_entry.getKey()), monitoredResourceURL, monitoredResource);
-
-				}
-			}
-			isInitial = false;
-
-			Long t1 = System.currentTimeMillis(); //finish time
 			try {
-				Map<Integer, Long> timeToSleep = new HashMap<Integer, Long>();
-
-				long min = 0;
-				for (Map.Entry<Integer, Integer> entry : resolution.entrySet()) {
-					timeToSleep.put(entry.getKey(), entry.getValue()-(t1-lastMonitorTime.get(entry.getKey())));
-					min = timeToSleep.get(entry.getKey());
-					toRun = entry.getKey();
+				if (isSent) {
+					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredResourceID);
 				}
-
-				for (Map.Entry<Integer, Long> entry : timeToSleep.entrySet()) {
-					if (entry.getValue() < min) {
-						min = entry.getValue();
-						toRun = entry.getKey();
-					}
-				}
-				Thread.sleep(Math.max(min, 0));
-			} catch (InterruptedException e) {
-				Thread.currentThread().interrupt();
-				break;
+			} catch (ServerErrorException e) {
+				e.printStackTrace();
+			} catch (StreamErrorException e) {
+				e.printStackTrace();
+			} catch (ValidationErrorException e) {
+				e.printStackTrace();
 			}
+
+			long t1 = System.currentTimeMillis();
+
+			for (int i = 0; i < nextPauseTime.size(); i++) {
+				nextPauseTime.set(i, Math.max(0, Integer.valueOf(nextPauseTime.get(i)-toSleep-(int)(t1-t0))));
+			}
+			nextPauseTime.set(index,period.get(index));
 		}
+
+
 	}
 
 	@Override

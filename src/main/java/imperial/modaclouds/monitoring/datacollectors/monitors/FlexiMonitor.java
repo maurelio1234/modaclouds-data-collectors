@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -22,27 +20,19 @@ import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
 import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
 import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
+import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 import java.io.BufferedReader;
-import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.util.UUID;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -83,35 +73,40 @@ public class FlexiMonitor extends AbstractMonitor {
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
-	private ObjectStoreConnector objectStoreConnector;
+	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored resource ID.
 	 */
 	private String monitoredResourceID;
+	
+	/**
+	 * The sampling probability.
+	 */
+	private double samplingProb;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
+	 * @throws FileNotFoundException 
 	 */
-	public FlexiMonitor() throws MalformedURLException  {
-		this.monitoredResourceID = UUID.randomUUID().toString();
+	public FlexiMonitor() throws MalformedURLException, FileNotFoundException  {
+		this.monitoredResourceID = "FrontendVM";
 		monitorName = "flexiant";
-		
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		objectStoreConnector = ObjectStoreConnector.getInstance();
-		
-		ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+
+		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -121,42 +116,31 @@ public class FlexiMonitor extends AbstractMonitor {
 		String password = null;
 		String host = null;
 
-		try {
-			String filePath = System.getProperty("user.dir") + "/config/configuration_Flexi.xml";
-			File file = new File(filePath);
+		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+		for (KBEntity kbEntity: dcConfig) {
+			DataCollector dc = (DataCollector) kbEntity;
+			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
 
-			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-			DocumentBuilder dBuilder;
-			dBuilder = dbFactory.newDocumentBuilder();
-			Document doc = dBuilder.parse(file);
+				Set<Parameter> parameters = dc.getParameters();
 
-			doc.getDocumentElement().normalize();
-
-			NodeList nList = doc.getElementsByTagName("flexi-metric");
-
-			for (int i = 0; i < nList.getLength(); i++) {
-
-				Node nNode = nList.item(i);
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-
-					Element eElement = (Element) nNode;
-
-					monitoredMachineAddress = eElement.getElementsByTagName("nodeAddress").item(0).getTextContent();
-					user = eElement.getElementsByTagName("user").item(0).getTextContent();
-					password = eElement.getElementsByTagName("password").item(0).getTextContent();
-					host = eElement.getElementsByTagName("host").item(0).getTextContent();
-					period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
-
+				for (Parameter par: parameters) {
+					switch (par.getName()) {
+					case "monitoredMachineAddress":
+						monitoredMachineAddress = par.getValue();
+						break;
+					case "user":
+						user = par.getValue();
+						break;
+					case "password":
+						password = par.getValue();
+						break;
+					case "host":
+						host = par.getValue();
+						break;
+					}
 				}
+				break;
 			}
-
-		} catch (ParserConfigurationException e1) {
-			e1.printStackTrace();
-		} catch (SAXException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 
 		JSch jsch = new JSch();
@@ -169,9 +153,37 @@ public class FlexiMonitor extends AbstractMonitor {
 			session.setConfig("StrictHostKeyChecking", "no");
 
 			session.connect(10*1000);
+
+			long startTime = 0;
+
 			while (!fmt.isInterrupted()) {
+				if (System.currentTimeMillis() - startTime > 60000) {
+					dcConfig = kbConnector.getAll(DataCollector.class);
+					for (KBEntity kbEntity: dcConfig) {
+						DataCollector dc = (DataCollector) kbEntity;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue());
+									break;
+								case "samplingProbability":
+									samplingProb = Double.valueOf(par.getValue());
+									break;
+								}
+							}
+							break;
+						}
+					}
+					startTime = System.currentTimeMillis();
+				}
+
+
 				boolean isSent = false;
-				if (Math.random() < this.samplingProb) {
+				if (Math.random() < samplingProb) {
 					isSent = true;
 				}
 				channel = session.openChannel("exec");

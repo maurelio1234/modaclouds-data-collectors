@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <spotPrice>
-	<accessKey></accessKey>
-	<secretKey></secretKey>
+	<accessKey>AKIAIE32APFMA4A6MORA</accessKey>
+	<secretKey>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</secretKey>
 	<monitorPeriod>10000</monitorPeriod>
 	<instance>
 		<endPoint>ec2.eu-west-1.amazonaws.com</endPoint>

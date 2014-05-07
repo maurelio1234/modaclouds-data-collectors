@@ -1,8 +1,6 @@
 /**
- * Copyright (c) 2012-2013, Imperial College London, developed under the MODAClouds, FP7 ICT Project, grant agreement n�� 318484
- * All rights reserved.
- * 
- *  Contact: imperial <weikun.wang11@imperial.ac.uk>
+ * Copyright ${2014} Imperial
+ * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -24,13 +22,7 @@ package imperial.modaclouds.monitoring.datacollectors.basic;
  * 
  */
 public abstract class AbstractMonitor implements Runnable
-{
-
-	/**
-	 * The sampling probability for each monitor.
-	 */
-	protected double samplingProb = 1.0;
-	
+{	
 	/**
 	 * Start monitor.
 	 */
@@ -45,14 +37,7 @@ public abstract class AbstractMonitor implements Runnable
 	 * Stop monitor.
 	 */
 	public abstract void stop();
-	
-	/**
-	 * Reconfigure the monitor setup.
-	 */
-	public void reconfig(double samplingProb) {
-		this.samplingProb = samplingProb;
-	}
-	
+
 	/**
 	 * The name of the monitor.
 	 */
