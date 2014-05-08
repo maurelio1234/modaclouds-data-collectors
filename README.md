@@ -14,3 +14,13 @@ Then run it as:
 java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data-collector-1.0.jar 
 ```
 
+## Maven repository
+<repositories>
+    ...
+    <repository>
+        <id>imperial-modaclouds-releases</id>
+        <url>https://github.com/imperial-modaclouds/imperial-modaclouds-mvn-repo/raw/master/releases</url>
+    </repository>
+    ...
+</repositories>
+
