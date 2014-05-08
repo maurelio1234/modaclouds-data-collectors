@@ -15,6 +15,9 @@ java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data
 ```
 
 ## Maven repository
+
+Release repository
+
 ```xml
 <repositories>
     ...
