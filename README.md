@@ -14,6 +14,9 @@ Then run it as:
 java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data-collector-1.0.jar 
 ```
 
+
+One thing to be noticed is that the "tools.jar" has to be installed locally since it is not in any public maven repository.
+
 ## Maven repository
 
 Release repository
