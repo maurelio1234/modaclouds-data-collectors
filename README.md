@@ -15,6 +15,7 @@ java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data
 ```
 
 ## Maven repository
+```xml
 <repositories>
     ...
     <repository>
@@ -23,4 +24,4 @@ java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data
     </repository>
     ...
 </repositories>
-
+```
