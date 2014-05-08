@@ -11,21 +11,6 @@ Please download and install the following pieces of software before using the Da
 First, Compile the code or download the latest release from [https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases](https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases).
 Then run it as: 
 ```java
-java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar dcs.jar <parameters>
+java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data-collector-1.0.jar 
 ```
-The parameters contain the name of the data collectors that need to run. So it currently supports the following ones:
-* jmx
-* collectl
-* sigar
-* ofbiz
-* apache
-* mysql
-* cloudwatch
-* flexiant
-* ec2-spotPrice
-* startupTime
-* cost
-* availability
-* detailedCost
 
-You can instantiate multiple data collectors at the same time.
