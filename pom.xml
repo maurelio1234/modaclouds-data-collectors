@@ -29,7 +29,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>imperial.modaclouds.monitoring</groupId>
-	<artifactId>dcs</artifactId>
+	<artifactId>data-collector</artifactId>
 	<version>1.0</version>
 	<packaging>jar</packaging>
 
