@@ -96,23 +96,29 @@ public class MySQLMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
-	
+	private String monitoredTarget;
+
 	/**
 	 * The metric list.
 	 */
 	private List<Metric> metricList; 
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public MySQLMonitor() throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public MySQLMonitor(String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
+
 		monitorName = "mysql";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -125,45 +131,51 @@ public class MySQLMonitor extends AbstractMonitor {
 	public void run() {
 
 		long startTime = 0;
-				
+
 		while (!sqlt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
-				
+			if (System.currentTimeMillis() - startTime > 10000) {
+
 				metricList = new ArrayList<Metric>();
-				
+
 				List<Integer> periodList = new ArrayList<Integer>();
-				
+
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
 
-						Metric temp = new Metric();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						temp.setMetricName(dc.getCollectedMetric());
-						
-						Set<Parameter> parameters = dc.getParameters();
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "samplingTime":
-								periodList.add(Integer.valueOf(par.getValue()));
-								break;
-							case "samplingProbability":
-								temp.setSamplingProb(Double.valueOf(par.getValue()));
-								break;
+							Metric temp = new Metric();
+
+							temp.setMetricName(dc.getCollectedMetric());
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "samplingTime":
+									periodList.add(Integer.valueOf(par.getValue())*1000);
+									break;
+								case "samplingProbability":
+									temp.setSamplingProb(Double.valueOf(par.getValue()));
+									break;
+								}
 							}
+
+							metricList.add(temp);
 						}
-						
-						metricList.add(temp);
 					}
 				}
-				
+
 				period = Collections.min(periodList);
 				startTime = System.currentTimeMillis();
 			}
-			
+
 			String query = "SHOW GLOBAL STATUS where ";
 
 			int numMetrics = 0;
@@ -197,7 +209,7 @@ public class MySQLMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(variableName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									ddaConnector.sendSyncMonitoringDatum(value, variableName, monitoredResourceID);
+									ddaConnector.sendSyncMonitoringDatum(value, variableName, monitoredTarget);
 								}
 							}
 						}

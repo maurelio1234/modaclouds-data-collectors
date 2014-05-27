@@ -90,18 +90,23 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public EC2SpotPriceMonitor () throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public EC2SpotPriceMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "ec2-spotPrice";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -120,56 +125,62 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 
 		while (!spmt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
+			if (System.currentTimeMillis() - startTime > 10000) {
 				spotInstanceVec = new ArrayList<SpotInstance>();
 
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ec2-spotPrice")) {
 
-						Set<Parameter> parameters = dc.getParameters();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						String endpoint = null;
-						String productDes = null;
-						String instanceType = null;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ec2-spotPrice")) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "accessKey":
-								accessKeyId = par.getValue();
-								break;
-							case "secretKey":
-								secretKey = par.getValue();
-								break;
-							case "endPoint":
-								endpoint = par.getValue();
-								break;
-							case "productDescription":
-								productDes = par.getValue();
-								break;
-							case "instanceType":
-								instanceType = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
-							case "samplingProbability":
-								samplingProb = Double.valueOf(par.getValue());
-								break;
+							Set<Parameter> parameters = dc.getParameters();
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							String endpoint = null;
+							String productDes = null;
+							String instanceType = null;
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "accessKey":
+									accessKeyId = par.getValue();
+									break;
+								case "secretKey":
+									secretKey = par.getValue();
+									break;
+								case "endPoint":
+									endpoint = par.getValue();
+									break;
+								case "productDescription":
+									productDes = par.getValue();
+									break;
+								case "instanceType":
+									instanceType = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue())*1000;
+									break;
+								case "samplingProbability":
+									samplingProb = Double.valueOf(par.getValue());
+									break;
+								}
 							}
+
+							SpotInstance spotInstance = new SpotInstance();
+							spotInstance.productDes = new ArrayList<String>();
+							spotInstance.instanceType = new ArrayList<String>();
+
+							spotInstance.endpoint = endpoint;
+							spotInstance.productDes.add(productDes);
+							spotInstance.instanceType.add(instanceType);
+
+							spotInstanceVec.add(spotInstance);
+							break;
 						}
-
-						SpotInstance spotInstance = new SpotInstance();
-						spotInstance.productDes = new ArrayList<String>();
-						spotInstance.instanceType = new ArrayList<String>();
-
-						spotInstance.endpoint = endpoint;
-						spotInstance.productDes.add(productDes);
-						spotInstance.instanceType.add(instanceType);
-
-						spotInstanceVec.add(spotInstance);
-						break;
 					}
 				}
 				startTime = System.currentTimeMillis();
@@ -209,7 +220,7 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 							temp = temp.replace("SpotPrice: ", "");
 							System.out.println(temp);
 							try {
-								ddaConnector.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredTarget);
 							} catch (ServerErrorException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();

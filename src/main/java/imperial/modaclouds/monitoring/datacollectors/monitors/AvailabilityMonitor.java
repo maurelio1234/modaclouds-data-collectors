@@ -57,7 +57,7 @@ import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
  * The monitoring collector for availability of VMs and applications.
  */
 public class AvailabilityMonitor extends AbstractMonitor{
-	
+
 	Logger logger = Logger.getLogger(AvailabilityMonitor.class);
 
 	/**
@@ -76,47 +76,52 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	private List<appInfo> apps;
 
 	/**
-	 * DDa connector.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
-	 * The unique monitored resource ID.
+	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
 	//private ObjectStoreConnector objectStoreConnector;
-	
+
 	/**
 	 * The logFile to put the availability.
 	 */
 	private String logFile;
-	
+
 	/**
 	 * The time period to calculate the availability.
 	 */
 	private long availabilityPeriod;
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public AvailabilityMonitor () throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public AvailabilityMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "availability";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
-		
+
 		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
@@ -128,7 +133,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 		 * The public IP of the VM.
 		 */
 		public String publicIP;
-		
+
 		/**
 		 * The retry period to connect the VM.
 		 */
@@ -143,36 +148,36 @@ public class AvailabilityMonitor extends AbstractMonitor{
 		 * The application URL.
 		 */
 		public String url;
-		
+
 		/**
 		 * The retry period to connect the VM.
 		 */
 		public int retryPeriod;
 	}
-	
+
 	private Map<String,Stat> availabilityStats;
-	
+
 	/**
 	 * The statistics of the availability.
 	 */
 	private class Stat {
-		
+
 		public long lastTime;
-		
+
 		public String wasReachable;
-		
+
 		public long successTime;
-		
+
 		public long failTime;
-		
+
 		public int successCount;
-		
+
 		public int failCount;
 	}
 
 	@Override
 	public void run() {
-		
+
 		vms = new ArrayList<vmInfo>();
 
 		apps = new ArrayList<appInfo>();
@@ -180,18 +185,23 @@ public class AvailabilityMonitor extends AbstractMonitor{
 		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 		for (KBEntity kbEntity: dcConfig) {
 			DataCollector dc = (DataCollector) kbEntity;
-			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("availability")) {
-				
-				Set<Parameter> parameters = dc.getParameters();
-				
-				String type = null;
-				
-				String retryPeriod = null;
-				
-				String publicIP = null;
-				
-				for (Parameter par: parameters) {
-					switch (par.getName()) {
+
+			if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+
+				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("availability")) {
+
+					Set<Parameter> parameters = dc.getParameters();
+
+					monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+					String type = null;
+
+					String retryPeriod = null;
+
+					String publicIP = null;
+
+					for (Parameter par: parameters) {
+						switch (par.getName()) {
 						case "type":
 							type = par.getValue();
 							break;
@@ -205,37 +215,38 @@ public class AvailabilityMonitor extends AbstractMonitor{
 							logFile = par.getValue();
 							break;
 						case "availabilityPeriod":
-							availabilityPeriod = Integer.valueOf(par.getValue());
+							availabilityPeriod = Integer.valueOf(par.getValue())*1000;
 							break;
+						}
 					}
+
+					if (type.equals("vm")) {
+						vmInfo vm = new vmInfo();
+						vm.retryPeriod = Integer.valueOf(retryPeriod)*1000;
+						vm.publicIP = publicIP;
+
+						vms.add(vm);
+					}
+					if (type.equals("app")) {
+						appInfo app = new appInfo();
+						app.retryPeriod = Integer.valueOf(retryPeriod)*1000;
+						app.url = publicIP;
+
+						apps.add(app);
+					}
+
+					break;
 				}
-				
-				if (type.equals("vm")) {
-					vmInfo vm = new vmInfo();
-					vm.retryPeriod = Integer.valueOf(retryPeriod);
-					vm.publicIP = publicIP;
-					
-					vms.add(vm);
-				}
-				if (type.equals("app")) {
-					appInfo app = new appInfo();
-					app.retryPeriod = Integer.valueOf(retryPeriod);
-					app.url = publicIP;
-					
-					apps.add(app);
-				}
-				
-				break;
 			}
 		}
 
 		initialize();
-		
+
 		analyseVmApp();
-		
+
 		while (true) {
 			computeStatistics();
-			
+
 			try {
 				Thread.sleep(availabilityPeriod);
 			} catch (InterruptedException e) {
@@ -243,60 +254,60 @@ public class AvailabilityMonitor extends AbstractMonitor{
 			}
 		}
 	}
-	
+
 	private void initialize() {
 		availabilityStats = new HashMap<String,Stat>();
-		
+
 		final String fileName;
 		File dir = new File(logFile);
 		fileName = dir.getName();
-		
+
 		if(dir.exists()){
 			dir = dir.getParentFile();
-	    } 
+		} 
 		else {
 			return;
 		}
-		
+
 		File[] files = null;
-		
+
 		long currentMillis = System.currentTimeMillis();
-		
+
 		long startMillis = currentMillis - availabilityPeriod;
-		
+
 		files = dir.listFiles(new FilenameFilter() {
 			@Override
 			public boolean accept(File dir, String name) {
 				return name.startsWith(fileName);
 			}
 		});
-		
+
 		Arrays.sort(files,Collections.reverseOrder());
-				
+
 		for (int i = 0; i < files.length; i++) {
 			try {
 				BufferedReader br = new BufferedReader(new FileReader(files[i]));
-				
+
 				String sCurrentLine;
 				while ((sCurrentLine = br.readLine()) != null) {
 					String[] splits = sCurrentLine.split("\t");
-					
+
 					SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy,HH:mm:ss,SSS");
 					Date date = sdf.parse(splits[0]);
-					
+
 					if (date.getTime() > startMillis) {
 						if (availabilityStats.get(splits[1]) == null) {
 							Stat temp = new Stat();
 							temp.lastTime = date.getTime();
 							temp.wasReachable = splits[2];
-							
+
 							if (splits[2].equals("reachable")) {
 								temp.successCount += 1;
 							}
 							else {
 								temp.failCount += 1;
 							}
-							
+
 							availabilityStats.put(splits[1], temp);
 						}
 						else {
@@ -321,14 +332,14 @@ public class AvailabilityMonitor extends AbstractMonitor{
 								}
 								temp.lastTime = date.getTime();
 							}
-							
+
 							availabilityStats.put(splits[1], temp);
 						}
 					}
 				}
 				br.close();
-				
-				
+
+
 			} catch (FileNotFoundException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -338,48 +349,48 @@ public class AvailabilityMonitor extends AbstractMonitor{
 			}
 		}
 	}
-	
+
 	private void computeStatistics() {		
 		for (Map.Entry<String, Stat> entry : availabilityStats.entrySet()) {
-		    String key = entry.getKey();
-		    Stat value = entry.getValue();
-		    
-		    double MTTF = 0;
-		    double MTTR = 0;
-		    double avai = 0;
-		    
-		    double temp_succ = 0;
-		    double temp_fail = 0;
-		    
-		    try {
-	    		if (value.wasReachable.equals("reachable")) {
-	    			temp_succ = System.currentTimeMillis() - value.lastTime;
-	    			temp_fail = 0;
-	    		}
-	    		else {
-	    			temp_succ = 0;
-	    			temp_fail = System.currentTimeMillis() - value.lastTime;
-	    		}
-	    		
-				avai = ((double)value.successTime+temp_succ)/((double)value.successTime+(double)value.failTime+temp_succ+temp_fail);
-	    		
-		    	if (value.failCount != 0) {	    		
-				    MTTF = ((double)value.successTime+temp_succ)/value.failCount;
-		    	}
-		    	else {
-		    		MTTF = (double)value.successTime+temp_succ;
-		    	}
-		    	
-			    if (value.successCount != 0) {	    		
-				    MTTR = ((double)value.failTime+temp_fail)/value.successCount;
-			    }
-			    else {
-				    MTTR = (double)value.failTime+temp_fail;
-			    }
+			String key = entry.getKey();
+			Stat value = entry.getValue();
 
-			    ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Reliability", monitoredResourceID);
-		    	ddaConnector.sendSyncMonitoringDatum("Availability\t"+key+"\t"+avai, "Availability", monitoredResourceID);
-		    	ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Reliability", monitoredResourceID);
+			double MTTF = 0;
+			double MTTR = 0;
+			double avai = 0;
+
+			double temp_succ = 0;
+			double temp_fail = 0;
+
+			try {
+				if (value.wasReachable.equals("reachable")) {
+					temp_succ = System.currentTimeMillis() - value.lastTime;
+					temp_fail = 0;
+				}
+				else {
+					temp_succ = 0;
+					temp_fail = System.currentTimeMillis() - value.lastTime;
+				}
+
+				avai = ((double)value.successTime+temp_succ)/((double)value.successTime+(double)value.failTime+temp_succ+temp_fail);
+
+				if (value.failCount != 0) {	    		
+					MTTF = ((double)value.successTime+temp_succ)/value.failCount;
+				}
+				else {
+					MTTF = (double)value.successTime+temp_succ;
+				}
+
+				if (value.successCount != 0) {	    		
+					MTTR = ((double)value.failTime+temp_fail)/value.successCount;
+				}
+				else {
+					MTTR = (double)value.failTime+temp_fail;
+				}
+
+				ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Reliability", monitoredTarget);
+				ddaConnector.sendSyncMonitoringDatum("Availability\t"+key+"\t"+avai, "Availability", monitoredTarget);
+				ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Reliability", monitoredTarget);
 			} catch (ServerErrorException e) {
 				e.printStackTrace();
 			} catch (StreamErrorException e) {
@@ -388,7 +399,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 				e.printStackTrace();
 			}
 		}
-	
+
 	}
 
 	/**
@@ -429,29 +440,29 @@ public class AvailabilityMonitor extends AbstractMonitor{
 				try{
 					if (availabilityStats.get(vm.publicIP) == null) {
 						Stat temp = new Stat();
-						
+
 						if (reachable) {
 							temp.wasReachable = "reachable";
 							temp.lastTime = System.currentTimeMillis();
 							availabilityStats.put(vm.publicIP, temp);
-							
+
 							logger.info(vm.publicIP+"\t"+"reachable");
 							System.out.println("The vm is available");
-							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredTarget);
 						}
 						else {
 							temp.wasReachable = "unreachable";
 							temp.lastTime = System.currentTimeMillis();
 							availabilityStats.put(vm.publicIP, temp);
-							
+
 							logger.info(vm.publicIP+"\t"+"unreachable");
 							System.out.println("The vm is not available");
-							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredTarget);
 						}
 					}
 					else {
 						Stat temp = availabilityStats.get(vm.publicIP);
-						
+
 						if (reachable) {
 							if (temp.wasReachable.equals("reachable")){
 								temp.successTime += System.currentTimeMillis() - temp.lastTime;
@@ -459,11 +470,11 @@ public class AvailabilityMonitor extends AbstractMonitor{
 							else{
 								temp.wasReachable = "reachable";
 								temp.successCount += 1;
-								
+
 								logger.info(vm.publicIP+"\t"+"reachable");
 							}
 							System.out.println("The vm is available");
-							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+							ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredTarget);
 							temp.lastTime = System.currentTimeMillis();
 						}
 						else{
@@ -473,11 +484,11 @@ public class AvailabilityMonitor extends AbstractMonitor{
 							else{
 								temp.wasReachable = "unreachable";
 								temp.failCount += 1;
-								
+
 								logger.info(vm.publicIP+"\t"+"unreachable");
 							}
 							System.out.println("The vm is not available");
-							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+							ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredTarget);
 							temp.lastTime = System.currentTimeMillis();
 						}
 					}
@@ -488,7 +499,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 				} catch (ValidationErrorException e) {
 					e.printStackTrace();
 				} 
-				
+
 				try {
 					Thread.sleep(vm.retryPeriod);
 				} catch (InterruptedException e) {
@@ -518,33 +529,33 @@ public class AvailabilityMonitor extends AbstractMonitor{
 
 					connection.setRequestMethod("HEAD");
 					int responseCode = connection.getResponseCode();
-					
+
 					try{
 						if (availabilityStats.get(app.url) == null) {
 							Stat temp = new Stat();
-							
+
 							if (responseCode == 200) {
 								temp.wasReachable = "reachable";
 								temp.lastTime = System.currentTimeMillis();
 								availabilityStats.put(app.url, temp);
-								
+
 								logger.info(app.url+"\t"+"reachable");
 								System.out.println("The application is available");
-								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredTarget);
 							}
 							else {
 								temp.wasReachable = "unreachable";
 								temp.lastTime = System.currentTimeMillis();
 								availabilityStats.put(app.url, temp);
-								
+
 								logger.info(app.url+"\t"+"unreachable");
 								System.out.println("The application is not available");
-								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredTarget);
 							}
 						}
 						else {
 							Stat temp = availabilityStats.get(app.url);
-							
+
 							if (responseCode == 200) {
 								if (temp.wasReachable.equals("reachable")){
 									temp.successTime += System.currentTimeMillis() - temp.lastTime;
@@ -552,11 +563,11 @@ public class AvailabilityMonitor extends AbstractMonitor{
 								else{
 									temp.wasReachable = "reachable";
 									temp.successCount += 1;
-									
+
 									logger.info(app.url+"\t"+"reachable");
 								}
 								System.out.println("The application is available");
-								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum("Available", "Availability", monitoredTarget);
 								temp.lastTime = System.currentTimeMillis();
 							}
 							else{
@@ -566,11 +577,11 @@ public class AvailabilityMonitor extends AbstractMonitor{
 								else{
 									temp.wasReachable = "unreachable";
 									temp.failCount += 1;
-									
+
 									logger.info(app.url+"\t"+"unreachable");
 								}
 								System.out.println("The application is not available");
-								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum("Unavailable", "Availability", monitoredTarget);
 								temp.lastTime = System.currentTimeMillis();
 							}
 						}
@@ -600,7 +611,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 	@Override
 	public void start() {
 		avmt = new Thread( this, "avm-mon");		
-				
+
 		Properties log4jProperties = new Properties();
 		log4jProperties.setProperty("log4j.rootLogger", "INFO, file");
 		log4jProperties.setProperty("log4j.appender.file", "org.apache.log4j.RollingFileAppender");

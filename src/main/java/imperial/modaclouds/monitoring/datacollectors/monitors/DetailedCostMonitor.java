@@ -105,18 +105,23 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public DetailedCostMonitor () throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public DetailedCostMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredResourceID = monitoredResourceID;
 		monitorName = "detailedCost";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -130,19 +135,19 @@ public class DetailedCostMonitor extends AbstractMonitor{
 		String accessKeyId = null;
 
 		String secretKey = null;
-		
+
 		ObjectListing objects = null;
-		
+
 		AmazonS3Client s3Client = null;
 
 		String key = null;
-		
+
 		long startTime = 0;
 
 		while (!dcmt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
-				
+			if (System.currentTimeMillis() - startTime > 10000) {
+
 				cost_nonspot = new HashMap<String,Double>();
 
 				cost_spot = new HashMap<String,Double>();
@@ -150,38 +155,43 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("detailedCost")) {
 
-						Set<Parameter> parameters = dc.getParameters();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("detailedCost")) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "accessKey":
-								accessKeyId = par.getValue();
-								break;
-							case "secretKey":
-								secretKey = par.getValue();
-								break;
-							case "bucketName":
-								bucketName = par.getValue();
-								break;
-							case "filePath":
-								filePath = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
+							Set<Parameter> parameters = dc.getParameters();
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "accessKey":
+									accessKeyId = par.getValue();
+									break;
+								case "secretKey":
+									secretKey = par.getValue();
+									break;
+								case "bucketName":
+									bucketName = par.getValue();
+									break;
+								case "filePath":
+									filePath = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue())*1000;
+									break;
+								}
 							}
+							break;
 						}
-						break;
 					}
 				}
-				
+
 				startTime = System.currentTimeMillis();
-				
+
 				AWSCredentials credentials = new BasicAWSCredentials(accessKeyId, secretKey);
 				s3Client = new AmazonS3Client(credentials);     
-				
+
 				objects = s3Client.listObjects(bucketName);
 
 				key = "aws-billing-detailed-line-items-with-resources-and-tags-";
@@ -293,7 +303,7 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				Double value = entry.getValue();
 
 				//System.out.println("Non spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredResourceID);
+				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
 			}
 
 			for (Map.Entry<String, Double> entry : cost_spot.entrySet()) {
@@ -301,7 +311,7 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				Double value = entry.getValue();
 
 				//System.out.println("Spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredResourceID);
+				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
 			}
 		} catch (ServerErrorException e) {
 			e.printStackTrace();

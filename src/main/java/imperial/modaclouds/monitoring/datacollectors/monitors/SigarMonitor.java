@@ -69,14 +69,16 @@ public class SigarMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * The metric list.
 	 */
 	private List<Metric> metricList; 
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
@@ -85,11 +87,12 @@ public class SigarMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public SigarMonitor(  ) throws MalformedURLException, FileNotFoundException {
+	public SigarMonitor( String ownURI) throws MalformedURLException, FileNotFoundException {
 		//this.monitoredResourceID = UUID.randomUUID().toString();
-		
-		this.monitoredResourceID = "FrontendVM";
+		//this.monitoredResourceID = "FrontendVM";
 		monitorName = "sigar";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -108,7 +111,7 @@ public class SigarMonitor extends AbstractMonitor {
 
 		while (!sigt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
+			if (System.currentTimeMillis() - startTime > 10000) {
 
 				period = new ArrayList<Integer>();
 				nextPauseTime = new ArrayList<Integer>();
@@ -119,27 +122,34 @@ public class SigarMonitor extends AbstractMonitor {
 
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
-						Metric temp = new Metric();
 
-						temp.setMetricName(dc.getCollectedMetric());
-						
-						Set<Parameter> parameters = dc.getParameters();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "samplingTime":
-								period.add(Integer.valueOf(par.getValue()));
-								nextPauseTime.add(Integer.valueOf(par.getValue()));
-								break;
-							case "samplingProbability":
-								temp.setSamplingProb(Double.valueOf(par.getValue()));
-								break;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
+							Metric temp = new Metric();
+
+							temp.setMetricName(dc.getCollectedMetric());
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							System.out.println("Received target: " + monitoredTarget);
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "samplingTime":
+									period.add(Integer.valueOf(par.getValue())*1000);
+									nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
+									break;
+								case "samplingProbability":
+									temp.setSamplingProb(Double.valueOf(par.getValue()));
+									break;
+								}
 							}
-						}
 
-						metricList.add(temp);
+							metricList.add(temp);
+						}
 					}
 				}
 
@@ -184,7 +194,8 @@ public class SigarMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredResourceID);
+					System.out.println(value + " " + metricList.get(index).getMetricName() + " " + monitoredTarget);
+					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (ServerErrorException e) {
 				e.printStackTrace();

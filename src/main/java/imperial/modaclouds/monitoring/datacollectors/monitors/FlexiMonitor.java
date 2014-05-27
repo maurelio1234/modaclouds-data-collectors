@@ -85,23 +85,28 @@ public class FlexiMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
-	
+	private String monitoredTarget;
+
 	/**
 	 * The sampling probability.
 	 */
 	private double samplingProb;
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public FlexiMonitor() throws MalformedURLException, FileNotFoundException  {
-		this.monitoredResourceID = "FrontendVM";
+	public FlexiMonitor(String ownURI) throws MalformedURLException, FileNotFoundException  {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "flexiant";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -119,27 +124,32 @@ public class FlexiMonitor extends AbstractMonitor {
 		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 		for (KBEntity kbEntity: dcConfig) {
 			DataCollector dc = (DataCollector) kbEntity;
-			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
+			if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-				Set<Parameter> parameters = dc.getParameters();
+				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
 
-				for (Parameter par: parameters) {
-					switch (par.getName()) {
-					case "monitoredMachineAddress":
-						monitoredMachineAddress = par.getValue();
-						break;
-					case "user":
-						user = par.getValue();
-						break;
-					case "password":
-						password = par.getValue();
-						break;
-					case "host":
-						host = par.getValue();
-						break;
+					Set<Parameter> parameters = dc.getParameters();
+
+					monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+					for (Parameter par: parameters) {
+						switch (par.getName()) {
+						case "monitoredMachineAddress":
+							monitoredMachineAddress = par.getValue();
+							break;
+						case "user":
+							user = par.getValue();
+							break;
+						case "password":
+							password = par.getValue();
+							break;
+						case "host":
+							host = par.getValue();
+							break;
+						}
 					}
+					break;
 				}
-				break;
 			}
 		}
 
@@ -224,7 +234,7 @@ public class FlexiMonitor extends AbstractMonitor {
 							if (count%2 == 1) {
 								try {
 									if (isSent) {
-										ddaConnector.sendSyncMonitoringDatum(m.group(1), metricName, monitoredResourceID);
+										ddaConnector.sendSyncMonitoringDatum(m.group(1), metricName, monitoredTarget);
 									}
 								} catch (ServerErrorException e) {
 									// TODO Auto-generated catch block

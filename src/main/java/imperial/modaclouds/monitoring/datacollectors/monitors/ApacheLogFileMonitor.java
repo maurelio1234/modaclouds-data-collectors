@@ -87,9 +87,9 @@ public class ApacheLogFileMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * The collected metric.
@@ -101,14 +101,19 @@ public class ApacheLogFileMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
+	private String ownURI;
+
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public ApacheLogFileMonitor () throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public ApacheLogFileMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "apache";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -123,32 +128,38 @@ public class ApacheLogFileMonitor extends AbstractMonitor {
 
 		while(!almt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
+			if (System.currentTimeMillis() - startTime > 10000) {
 
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("apache")) {
 
-						Set<Parameter> parameters = dc.getParameters();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "fileName":
-								fileName = par.getValue();
-								break;
-							case "pattern":
-								pattern = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
-							case "samplingProbability":
-								samplingProb = Double.valueOf(par.getValue());
-								break;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("apache")) {
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "fileName":
+									fileName = par.getValue();
+									break;
+								case "pattern":
+									pattern = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue())*1000;
+									break;
+								case "samplingProbability":
+									samplingProb = Double.valueOf(par.getValue());
+									break;
+								}
 							}
+							break;
 						}
-						break;
 					}
 				}
 				startTime = System.currentTimeMillis();
@@ -179,7 +190,7 @@ public class ApacheLogFileMonitor extends AbstractMonitor {
 						//System.out.println(temp);
 						try {
 							if (Math.random() < samplingProb) {
-								ddaConnector.sendSyncMonitoringDatum(temp, CollectedMetric, monitoredResourceID);
+								ddaConnector.sendSyncMonitoringDatum(temp, CollectedMetric, monitoredTarget);
 							}
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 						} catch (NumberFormatException e) {

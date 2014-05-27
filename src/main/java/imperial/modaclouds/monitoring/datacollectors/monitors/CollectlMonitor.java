@@ -102,29 +102,32 @@ public class CollectlMonitor extends AbstractMonitor {
 	private static final int PROCESS = 5;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * DDa connector.
 	 */
 	private DDAConnector ddaConnector;
-	
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private KBConnector kbConnector;
-	
+
 	/**
 	 * Object store connector.
 	 */
 	//private ObjectStoreConnector objectStoreConnector;
-	
+
 	/**
 	 * The sampling probability.
 	 */
 	private double samplingProb;
+
+	private String ownURI;
+
 
 
 	/**
@@ -133,14 +136,17 @@ public class CollectlMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public CollectlMonitor() throws MalformedURLException, FileNotFoundException 
+	public CollectlMonitor(String ownURI) throws MalformedURLException, FileNotFoundException 
 	{
-		this.monitoredResourceID = "FrontendVM";
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "collectl";
-		
+
+		this.ownURI = ownURI;
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();		
-		
+
 		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
@@ -152,37 +158,43 @@ public class CollectlMonitor extends AbstractMonitor {
 			BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
 			long startTime = 0;
-			
+
 			// correspond to command: collectl -scndm --verbose -A server
 			while(!colt.isInterrupted()) 
 			{
-				if (System.currentTimeMillis() - startTime > 60000) {
+				if (System.currentTimeMillis() - startTime > 10000) {
 					ArrayList<String> requiredMetric = new ArrayList<String>();
-										
+
 					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 					for (KBEntity kbEntity: dcConfig) {
 						DataCollector dc = (DataCollector) kbEntity;
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
-											
-							requiredMetric.add(dc.getCollectedMetric());
-							
-							Set<Parameter> parameters = dc.getParameters();
-							
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
+
+						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+
+							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+
+								requiredMetric.add(dc.getCollectedMetric());
+
+								Set<Parameter> parameters = dc.getParameters();
+
+								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+								for (Parameter par: parameters) {
+									switch (par.getName()) {
 									case "samplingProbability":
 										samplingProb = Double.valueOf(par.getValue());
 										break;
+									}
 								}
 							}
 						}
 					}
 
 					metricPair = parseMetrics(requiredMetric);
-					
+
 					startTime = System.currentTimeMillis();
 				}
-				
+
 				boolean isSent = false;
 				if (Math.random() < samplingProb) {
 					isSent = true;
@@ -226,11 +238,11 @@ public class CollectlMonitor extends AbstractMonitor {
 
 										if (isSent) {
 											if (key.equals("CPUUtilization")) {
-												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), "CPUUtilization", monitoredResourceID);
+												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), "CPUUtilization", monitoredTarget);
 												//sendMonitoringDatum(100-Integer.valueOf(values[8]),MC.CPUUtilization,monitoredResourceURL,monitoredResource);
 											}
 											else {
-												ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredResourceID);
+												ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 												//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
 											}
 										}
@@ -247,7 +259,7 @@ public class CollectlMonitor extends AbstractMonitor {
 										Integer value = entry.getValue();
 
 										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredResourceID);
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										}
 										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
 									}
@@ -261,9 +273,9 @@ public class CollectlMonitor extends AbstractMonitor {
 									for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
 										String key = entry.getKey();
 										Integer value = entry.getValue();
-										
+
 										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredResourceID);
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										}
 										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
 									}
@@ -279,7 +291,7 @@ public class CollectlMonitor extends AbstractMonitor {
 										Integer value = entry.getValue();
 
 										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredResourceID);
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										}
 										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
 									}
@@ -415,29 +427,29 @@ public class CollectlMonitor extends AbstractMonitor {
 	@Override
 	public void start() {
 		ArrayList<String> requiredMetric = new ArrayList<String>();
-		
+
 		List<Integer> periodList = new ArrayList<Integer>();
-		
+
 		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 		for (KBEntity kbEntity: dcConfig) {
 			DataCollector dc = (DataCollector) kbEntity;
 			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
-								
+
 				requiredMetric.add(dc.getCollectedMetric());
-				
+
 				Set<Parameter> parameters = dc.getParameters();
-				
+
 				for (Parameter par: parameters) {
 					switch (par.getName()) {
-						case "serverIP":
-							serverIP = par.getValue();
-							break;
-						case "samplingTime":
-							periodList.add(Integer.valueOf(par.getValue()));
-							break;
-						case "samplingProbability":
-							samplingProb = Double.valueOf(par.getValue());
-							break;
+					case "serverIP":
+						serverIP = par.getValue();
+						break;
+					case "samplingTime":
+						periodList.add(Integer.valueOf(par.getValue())*1000);
+						break;
+					case "samplingProbability":
+						samplingProb = Double.valueOf(par.getValue());
+						break;
 					}
 				}
 			}

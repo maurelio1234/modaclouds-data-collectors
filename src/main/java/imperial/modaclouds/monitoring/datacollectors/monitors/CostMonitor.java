@@ -83,14 +83,16 @@ public class CostMonitor extends AbstractMonitor{
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * The sampling probability.
 	 */
 	private double samplingProb;
+
+	private String ownURI;
 
 	/**
 	 * The measure set to store the monitoring value.
@@ -126,9 +128,11 @@ public class CostMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public CostMonitor () throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public CostMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "cost";
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -145,45 +149,50 @@ public class CostMonitor extends AbstractMonitor{
 		String secretKey = null;
 
 		ArrayList<String> measureNames = null;
-		
+
 		long startTime = 0;
 
 		while (!cwmt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
-				
+			if (System.currentTimeMillis() - startTime > 10000) {
+
 				measureNames = new ArrayList<String>();
 
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("cost")) {
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						measureNames.add("EstimatedCharges");
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("cost")) {
 
-						Set<Parameter> parameters = dc.getParameters();
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "accessKey":
-								accessKeyId = par.getValue();
-								break;
-							case "secretKey":
-								secretKey = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
-							case "samplingProbability":
-								samplingProb = Double.valueOf(par.getValue());
-								break;
+							measureNames.add("EstimatedCharges");
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "accessKey":
+									accessKeyId = par.getValue();
+									break;
+								case "secretKey":
+									secretKey = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue())*1000;
+									break;
+								case "samplingProbability":
+									samplingProb = Double.valueOf(par.getValue());
+									break;
+								}
 							}
 						}
 					}
 				}
 				cloudWatchClient = new AmazonCloudWatchClient(new BasicAWSCredentials(accessKeyId, secretKey));
 				cloudWatchClient.setEndpoint("monitoring.us-east-1.amazonaws.com");
-				
+
 				startTime = System.currentTimeMillis();
 			}
 
@@ -197,7 +206,7 @@ public class CostMonitor extends AbstractMonitor{
 				for (String measureName : measureSet.getMeasureNames()) {
 					try {
 						if (Math.random() < samplingProb) {
-							ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), "Cost", monitoredResourceID);
+							ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), "Cost", monitoredTarget);
 						}
 					} catch (ServerErrorException e) {
 						// TODO Auto-generated catch block

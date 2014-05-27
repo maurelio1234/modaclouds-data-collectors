@@ -89,22 +89,28 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * The sampling probability.
 	 */
 	private double samplingProb;
 
+	private String ownURI;
+
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public OFBizLogFileMonitor ( ) throws MalformedURLException, FileNotFoundException  {
-		this.monitoredResourceID = "FrontendVM";
+	public OFBizLogFileMonitor (String ownURI ) throws MalformedURLException, FileNotFoundException  {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
+
+		this.ownURI = ownURI;
+
 		monitorName = "ofbiz";
 
 		ddaConnector = DDAConnector.getInstance();
@@ -205,7 +211,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				try {
 					if (Math.random() < samplingProb) {
-						ddaConnector.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredResourceID);
+						ddaConnector.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredTarget);
 					}
 				} catch (ServerErrorException e) {
 					e.printStackTrace();
@@ -231,30 +237,36 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ofbiz")) {
 
-						Set<Parameter> parameters = dc.getParameters();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "logFileName":
-								fileName = par.getValue();
-								break;
-							case "pattern":
-								pattern = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
-							case "samplingProbability":
-								samplingProb = Double.valueOf(par.getValue());
-								break;
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ofbiz")) {
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getId();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "logFileName":
+									fileName = par.getValue();
+									break;
+								case "pattern":
+									pattern = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue());
+									break;
+								case "samplingProbability":
+									samplingProb = Double.valueOf(par.getValue());
+									break;
+								}
 							}
+							if (pattern == null) {
+								pattern = "(19|20\\d{2})-(0?[1-9]|1[012])-(0?[1-9]|[12]\\d|3[01]) ([01]?\\d|2[0-3]):([0-5]\\d):([0-5]\\d),(\\d{3}).*\\((http.+?)\\).*\\[\\[\\[(.+?)\\(Domain.*(Request Done).*total:(.*),";
+							}
+							break;
 						}
-						if (pattern == null) {
-							pattern = "(19|20\\d{2})-(0?[1-9]|1[012])-(0?[1-9]|[12]\\d|3[01]) ([01]?\\d|2[0-3]):([0-5]\\d):([0-5]\\d),(\\d{3}).*\\((http.+?)\\).*\\[\\[\\[(.+?)\\(Domain.*(Request Done).*total:(.*),";
-						}
-						break;
 					}
 				}
 				startTime = System.currentTimeMillis();

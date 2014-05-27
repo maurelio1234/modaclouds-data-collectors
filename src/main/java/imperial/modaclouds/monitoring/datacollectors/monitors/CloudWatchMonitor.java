@@ -89,14 +89,16 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
-	
+	private String monitoredTarget;
+
 	/**
 	 * The metric list.
 	 */
 	private List<Metric> metricList; 
+
+	private String ownURI;
 
 
 	/**
@@ -133,9 +135,12 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public CloudWatchMonitor() throws MalformedURLException, FileNotFoundException  {
-		this.monitoredResourceID = "FrontendVM";
+	public CloudWatchMonitor(String ownURI) throws MalformedURLException, FileNotFoundException  {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "cloudwatch";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -147,59 +152,65 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	public void run() {
 
 		long startTime = 0;
-		
+
 		String accessKeyId = null;
 
 		String secretKey = null;
-		
+
 		String endpoint = null;
 
 		ArrayList<String> measureNames = null;
-		
+
 		while (!cwmt.isInterrupted()) {
-			
-			if (System.currentTimeMillis() - startTime > 60000) {
+
+			if (System.currentTimeMillis() - startTime > 10000) {
 
 				measureNames = new ArrayList<String>();
-				
+
 				metricList = new ArrayList<Metric>();
-				
+
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("cloudwatch")) {
-						
-						Metric temp = new Metric();
-						
-						temp.setMetricName(dc.getCollectedMetric());
-						
-						measureNames.add(dc.getCollectedMetric());
-						
-						Set<Parameter> parameters = dc.getParameters();
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "accessKey":
-								accessKeyId = par.getValue();
-								break;
-							case "instanceID":
-								instanceID = par.getValue();
-								break;
-							case "secretKey":
-								secretKey = par.getValue();
-								break;
-							case "samplingTime":
-								period = Integer.valueOf(par.getValue());
-								break;
-							case "samplingProbability":
-								temp.setSamplingProb(Double.valueOf(par.getValue()));
-								break;
-							case "endpoint":
-								endpoint = par.getValue();
-								break;
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("cloudwatch")) {
+
+							Metric temp = new Metric();
+
+							temp.setMetricName(dc.getCollectedMetric());
+
+							measureNames.add(dc.getCollectedMetric());
+
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "accessKey":
+									accessKeyId = par.getValue();
+									break;
+								case "instanceID":
+									instanceID = par.getValue();
+									break;
+								case "secretKey":
+									secretKey = par.getValue();
+									break;
+								case "samplingTime":
+									period = Integer.valueOf(par.getValue())*1000;
+									break;
+								case "samplingProbability":
+									temp.setSamplingProb(Double.valueOf(par.getValue()));
+									break;
+								case "endpoint":
+									endpoint = par.getValue();
+									break;
+								}
 							}
+							metricList.add(temp);
 						}
-						metricList.add(temp);
 					}
 				}
 
@@ -222,7 +233,7 @@ public class CloudWatchMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(measureName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredResourceID);
+									ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredTarget);
 								}
 							}
 						}

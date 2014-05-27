@@ -150,14 +150,16 @@ public class JMXMonitor extends AbstractMonitor {
 	private ObjectStoreConnector objectStoreConnector;
 
 	/**
-	 * The unique monitored resource ID.
+	 * The unique monitored target.
 	 */
-	private String monitoredResourceID;
+	private String monitoredTarget;
 
 	/**
 	 * The metric list.
 	 */
 	private List<Metric> metricList; 
+
+	private String ownURI;
 
 	/**
 	 * Constructor of the class.
@@ -167,9 +169,12 @@ public class JMXMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public JMXMonitor(  ) throws MalformedURLException, FileNotFoundException {
-		this.monitoredResourceID = "FrontendVM";
+	public JMXMonitor( String ownURI ) throws MalformedURLException, FileNotFoundException {
+		//this.monitoredResourceID = "FrontendVM";
+		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "jmx";
+
+		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -290,12 +295,12 @@ public class JMXMonitor extends AbstractMonitor {
 		long startTime = 0;
 
 		List<Integer> period = null;
-		
+
 		List<Integer> nextPauseTime = null;
 
 		while (!jmxt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
+			if (System.currentTimeMillis() - startTime > 10000) {
 
 				period = new ArrayList<Integer>();
 				nextPauseTime = new ArrayList<Integer>();
@@ -307,26 +312,31 @@ public class JMXMonitor extends AbstractMonitor {
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
 
-					if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("jmx")) {
-						Metric temp = new Metric();
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-						temp.setMetricName(dc.getCollectedMetric());
+						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("jmx")) {
+							Metric temp = new Metric();
 
-						Set<Parameter> parameters = dc.getParameters();
+							temp.setMetricName(dc.getCollectedMetric());
 
-						for (Parameter par: parameters) {
-							switch (par.getName()) {
-							case "samplingTime":
-								period.add(Integer.valueOf(par.getValue()));
-								nextPauseTime.add(Integer.valueOf(par.getValue()));
-								break;
-							case "samplingProbability":
-								temp.setSamplingProb(Double.valueOf(par.getValue()));
-								break;
+							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+							Set<Parameter> parameters = dc.getParameters();
+
+							for (Parameter par: parameters) {
+								switch (par.getName()) {
+								case "samplingTime":
+									period.add(Integer.valueOf(par.getValue())*1000);
+									nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
+									break;
+								case "samplingProbability":
+									temp.setSamplingProb(Double.valueOf(par.getValue()));
+									break;
+								}
 							}
-						}
 
-						metricList.add(temp);
+							metricList.add(temp);
+						}
 					}
 				}
 
@@ -366,7 +376,7 @@ public class JMXMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredResourceID);
+					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (ServerErrorException e) {
 				e.printStackTrace();
@@ -394,14 +404,14 @@ public class JMXMonitor extends AbstractMonitor {
 
 	@Override
 	public void init() {
-		
+
 		try {
 			setConnector();
 			setMBeans();
 		} catch (Exception e1) {
 			e1.printStackTrace();
 		}
-		
+
 		try {
 			osMBean = ManagementFactory.newPlatformMXBeanProxy( remote,
 					ManagementFactory.OPERATING_SYSTEM_MXBEAN_NAME,

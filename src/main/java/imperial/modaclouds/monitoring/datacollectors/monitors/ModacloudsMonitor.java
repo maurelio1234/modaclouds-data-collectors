@@ -69,6 +69,8 @@ public class ModacloudsMonitor extends Application
 	 */
 	private static DDAConnector ddaConnector;
 
+	private static String ownURI;	
+	
 	/**
 	 * Knowledge base connector.
 	 */
@@ -136,55 +138,55 @@ public class ModacloudsMonitor extends Application
 			AbstractMonitor newMonitor = null;
 			switch (intArray[i]) {
 			case 1:
-				newMonitor = new JMXMonitor();
+				newMonitor = new JMXMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 2:
-				newMonitor = new CollectlMonitor();
+				newMonitor = new CollectlMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 3:
-				newMonitor = new SigarMonitor();
+				newMonitor = new SigarMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 4:
-				newMonitor = new OFBizLogFileMonitor();
+				newMonitor = new OFBizLogFileMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 5:
-				newMonitor = new ApacheLogFileMonitor();
+				newMonitor = new ApacheLogFileMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 6:
-				newMonitor = new MySQLMonitor();
+				newMonitor = new MySQLMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 7:
-				newMonitor = new CloudWatchMonitor();
+				newMonitor = new CloudWatchMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 8:
-				newMonitor = new FlexiMonitor();
+				newMonitor = new FlexiMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 9:
-				newMonitor = new EC2SpotPriceMonitor();
+				newMonitor = new EC2SpotPriceMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 10:
-				newMonitor = new StartupTimeMonitor();
+				newMonitor = new StartupTimeMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 11:
-				newMonitor = new CostMonitor();
+				newMonitor = new CostMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 12:
-				newMonitor = new AvailabilityMonitor();
+				newMonitor = new AvailabilityMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 13:
-				newMonitor = new DetailedCostMonitor();
+				newMonitor = new DetailedCostMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			}
@@ -240,6 +242,13 @@ public class ModacloudsMonitor extends Application
 	 */
 	public static void main( String[] args ) throws Exception
 	{
+		if (args.length < 1) {
+			System.out.println("Please input the uri of the instance");
+			System.exit(-1);
+		}
+		
+		ownURI = args[0];
+		
 		//ddaConnector = DDAConnector.getInstance();
 		try {
 			//objectStoreConnector = ObjectStoreConnector.getInstance();
@@ -261,19 +270,21 @@ public class ModacloudsMonitor extends Application
 
 		while(true) {
 
-			if (System.currentTimeMillis() - startTime > 60000) {
+			if (System.currentTimeMillis() - startTime > 10000) {
 
 				List<String> newCollectors = new ArrayList<String>(); 
 				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 				
 				for (KBEntity kbEntity: dcConfig) {
 					DataCollector dc = (DataCollector) kbEntity;
-
+					
+					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					
 					//dc.setEnabled(true);
 					//kbConnector.add(dc);
-
-					if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
-						newCollectors.add(findCollector(dc.getCollectedMetric()));
+						if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
+							newCollectors.add(findCollector(dc.getCollectedMetric()));
+						}
 					}
 				}
 				
@@ -298,6 +309,8 @@ public class ModacloudsMonitor extends Application
 				oldCollectors = newCollectors;
 				
 				startTime = System.currentTimeMillis();
+				
+				Thread.sleep(10000);
 			}
 		}
 
@@ -352,7 +365,16 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("heapmemoryused", "jmx");
 		}
 		
-		return metricCollectorMapping.get(metricName.toLowerCase());
+		String collector;
+		collector = metricCollectorMapping.get(metricName.toLowerCase());
+		
+		if (collector == null) {
+			System.out.println("Metric: "+metricName+" not found");
+			return null;
+		}
+		else {
+			return collector;
+		}
 	}
 
 }
