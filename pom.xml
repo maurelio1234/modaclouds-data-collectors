@@ -1,6 +1,6 @@
 <!--
 
-    Copyright ${year} deib-polimi
+    Copyright ${year} imperial
     Contact: imperial <weikun.wang11@imperial.ac.uk>
 
        Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +16,7 @@
        limitations under the License.
 
 -->
-<!-- Copyright ${year} deib-polimi Contact: imperial <weikun.wang11@imperial.ac.uk> 
+<!-- Copyright ${2014} imperial Contact: imperial <weikun.wang11@imperial.ac.uk> 
 	Licensed under the Apache License, Version 2.0 (the "License"); you may not 
 	use this file except in compliance with the License. You may obtain a copy 
 	of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required 
@@ -30,7 +30,7 @@
 
 	<groupId>imperial.modaclouds.monitoring</groupId>
 	<artifactId>data-collector</artifactId>
-	<version>1.0</version>
+	<version>1.0.1</version>
 	<packaging>jar</packaging>
 
 	<name>dcs</name>
@@ -201,7 +201,7 @@
 				<configuration>
 					<header>${project.basedir}/APACHE-2-header.txt</header>
 					<properties>
-						<organization>deib-polimi</organization>
+						<organization>imperial</organization>
 						<year>${project.inceptionYear}</year>
 						<owner>imperial</owner>
 						<email>weikun.wang11@imperial.ac.uk</email>

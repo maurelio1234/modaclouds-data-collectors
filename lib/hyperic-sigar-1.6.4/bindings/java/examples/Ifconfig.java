@@ -1,5 +1,5 @@
 /**
- * Copyright ${year} deib-polimi
+ * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
