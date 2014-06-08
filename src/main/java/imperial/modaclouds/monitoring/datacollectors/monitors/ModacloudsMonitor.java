@@ -93,7 +93,7 @@ public class ModacloudsMonitor extends Application
 		dcIndex.put("collectl", 2);
 		dcIndex.put("sigar", 3);
 		dcIndex.put("ofbiz", 4);
-		dcIndex.put("apache", 5);
+		dcIndex.put("logFile", 5);
 		dcIndex.put("mysql", 6);
 		dcIndex.put("cloudwatch", 7);
 		dcIndex.put("flexiant", 8);
@@ -154,7 +154,7 @@ public class ModacloudsMonitor extends Application
 				monitors.add(newMonitor);
 				break;
 			case 5:
-				newMonitor = new ApacheLogFileMonitor(ownURI);
+				newMonitor = new LogFileMonitor(ownURI);
 				monitors.add(newMonitor);
 				break;
 			case 6:
@@ -356,13 +356,53 @@ public class ModacloudsMonitor extends Application
 
 			metricCollectorMapping.put("cpuutilization", "sigar");
 			metricCollectorMapping.put("cpustolen", "sigar");
-			metricCollectorMapping.put("uptime", "mysql");
+			metricCollectorMapping.put("memused", "sigar");
+			metricCollectorMapping.put("threads_running", "mysql");
+			metricCollectorMapping.put("threads_cached", "mysql");
+			metricCollectorMapping.put("threads_connected", "mysql");
+			metricCollectorMapping.put("threads_created", "mysql");
+			metricCollectorMapping.put("queries", "mysql");
+			metricCollectorMapping.put("bytes_received", "mysql");
+			metricCollectorMapping.put("bytes_sent", "mysql");
+			metricCollectorMapping.put("connections", "mysql");
+			metricCollectorMapping.put("aborted_connects", "mysql");
+			metricCollectorMapping.put("aborted_clients", "mysql");
+			metricCollectorMapping.put("table_locks_immediate", "mysql");
+			metricCollectorMapping.put("table_locks_waited", "mysql");
+			metricCollectorMapping.put("com_insert", "mysql");
+			metricCollectorMapping.put("com_delete", "mysql");
+			metricCollectorMapping.put("com_update", "mysql");
+			metricCollectorMapping.put("com_select", "mysql");
+			metricCollectorMapping.put("qcache_hits", "mysql");
+			metricCollectorMapping.put("diskreadopscloudwatch", "cloudwatch");
+			metricCollectorMapping.put("cpuutilizationcloudwatch", "cloudwatch");
+			metricCollectorMapping.put("diskreadopscloudwatch", "cloudwatch");
+			metricCollectorMapping.put("diskwriteopscloudwatch", "cloudwatch");
+			metricCollectorMapping.put("diskreadbytescloudwatch", "cloudwatch");
+			metricCollectorMapping.put("diskwritebytescloudwatch", "cloudwatch");
+			metricCollectorMapping.put("networkincloudwatch", "cloudwatch");
+			metricCollectorMapping.put("networkoutcloudwatch", "cloudwatch");
+			metricCollectorMapping.put("peakthreadcountjmx","jmx");
+			metricCollectorMapping.put("heapmemoryusedjmx", "jmx");
+			metricCollectorMapping.put("uptimejmx", "jmx");
+			metricCollectorMapping.put("cpuutilizationcollectl", "collectl");
+			metricCollectorMapping.put("contextswitchcollectl", "collectl");
+			metricCollectorMapping.put("cpuutilstolencollectl", "collectl");
+			metricCollectorMapping.put("interruptscollectl", "collectl");
+			metricCollectorMapping.put("maxprocscollectl", "collectl");
+			metricCollectorMapping.put("maxprocsqueuecollectl", "collectl");
+			metricCollectorMapping.put("memusedcollectl", "collectl");
+			metricCollectorMapping.put("memSwapspaceusedcollectl", "collectl");
+			metricCollectorMapping.put("networkinbytescollectl", "collectl");
+			metricCollectorMapping.put("networkoutbytescollectl", "collectl");
 			metricCollectorMapping.put("generalcost", "cost");
 			metricCollectorMapping.put("ec2-spotprice", "ec2-spotPrice");
-			metricCollectorMapping.put("diskreadops", "cloudwatch");
 			metricCollectorMapping.put("responseinfo", "ofbiz");
-			metricCollectorMapping.put("peakthreadcount","jmx");
-			metricCollectorMapping.put("heapmemoryused", "jmx");
+			metricCollectorMapping.put("startuptime", "startupTime");
+			metricCollectorMapping.put("logfile", "logFile");
+			metricCollectorMapping.put("detailedcost", "detailedCost");
+			metricCollectorMapping.put("availability", "availability");
+			metricCollectorMapping.put("flexi", "flexi");
 		}
 		
 		String collector;

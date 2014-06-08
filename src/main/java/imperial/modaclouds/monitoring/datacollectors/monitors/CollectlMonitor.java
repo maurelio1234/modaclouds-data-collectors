@@ -141,6 +141,7 @@ public class CollectlMonitor extends AbstractMonitor {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 		monitorName = "collectl";
+		serverIP = "localhost";
 
 		this.ownURI = ownURI;
 
@@ -334,40 +335,40 @@ public class CollectlMonitor extends AbstractMonitor {
 		Map<String,Map<String,Integer>> pair = new HashMap<String,Map<String,Integer>>();
 
 		Map<String,Integer> CPUMetrics = new HashMap<String,Integer>();
-		CPUMetrics.put("CPUUtilisationSys", 3);
-		CPUMetrics.put("CPUUtilisationUser", 1);
-		CPUMetrics.put("CPUUtilisationWait", 4);
-		CPUMetrics.put("CPUUtilization", 8);
-		CPUMetrics.put("ContextSwitch", 11);
-		CPUMetrics.put("CPUUtilStolen", 7);
-		CPUMetrics.put("Interrupts", 10);
-		CPUMetrics.put("MaxProcs", 14);
-		CPUMetrics.put("MaxProcsQueue", 13);
+		CPUMetrics.put("cpuutilisationsyscollectl", 3);
+		CPUMetrics.put("cpuutilisationusercollectl", 1);
+		CPUMetrics.put("cpuutilisationwaitcollectl", 4);
+		CPUMetrics.put("cpuutilizationcollectl", 8);
+		CPUMetrics.put("contextswitchcollectl", 11);
+		CPUMetrics.put("cpuutilstolencollectl", 7);
+		CPUMetrics.put("interruptscollectl", 10);
+		CPUMetrics.put("maxProcscollectl", 14);
+		CPUMetrics.put("maxProcsqueuecollectl", 13);
 
 		Map<String,Integer> DiskMetrics = new HashMap<String,Integer>();
-		DiskMetrics.put("DiskReadBytes", 1);
-		DiskMetrics.put("DiskReadOps", 3);
-		DiskMetrics.put("DiskWriteBytes", 5);
-		DiskMetrics.put("DiskWriteOps", 7);
-		DiskMetrics.put("DiskQLen", 10);
-		DiskMetrics.put("DiskWait", 11);
+		DiskMetrics.put("diskreadbytescollectl", 1);
+		DiskMetrics.put("diskreadopscollectl", 3);
+		DiskMetrics.put("diskwritebytescollectl", 5);
+		DiskMetrics.put("diskwriteopscollectl", 7);
+		DiskMetrics.put("diskqlencollectl", 10);
+		DiskMetrics.put("diskwaitcollectl", 11);
 
 		Map<String,Integer> MemoryMetrics = new HashMap<String,Integer>();
-		MemoryMetrics.put("MemUsed", 2);
-		MemoryMetrics.put("MemoryBuff", 4);
-		MemoryMetrics.put("MemoryCache", 5);
-		MemoryMetrics.put("MemoryCommit", 8);
-		MemoryMetrics.put("MemSwapSpaceUsed", 11);
-		MemoryMetrics.put("MemorySwapIn", 12);
-		MemoryMetrics.put("MemorySwapOut", 13);
+		MemoryMetrics.put("memusedcollectl", 2);
+		MemoryMetrics.put("memorybuffcollectl", 4);
+		MemoryMetrics.put("memorycachecollectl", 5);
+		MemoryMetrics.put("memorycommitcollectl", 8);
+		MemoryMetrics.put("memswapspaceusedcollectl", 11);
+		MemoryMetrics.put("memoryswapincollectl", 12);
+		MemoryMetrics.put("memoryswapoutcollectl", 13);
 
 		Map<String,Integer> NetworkMetrics = new HashMap<String,Integer>();
-		NetworkMetrics.put("NetworkInBytes", 1);
-		NetworkMetrics.put("NetworkOutBytes", 7);
+		NetworkMetrics.put("networkinbytescollectl", 1);
+		NetworkMetrics.put("networkoutbytescollectl", 7);
 
 
 		for (int i=0; i < metrics.size(); i++) {
-			if (CPUMetrics.get(metrics.get(i)) != null) {
+			if (CPUMetrics.get(metrics.get(i).toLowerCase()) != null) {
 				Map<String,Integer> values;
 				if (pair.get("CPU") == null) {
 					values = new HashMap<String,Integer>();
@@ -380,7 +381,7 @@ public class CollectlMonitor extends AbstractMonitor {
 				pair.put("CPU", values);
 				continue;
 			}
-			if (DiskMetrics.get(metrics.get(i)) != null) {
+			if (DiskMetrics.get(metrics.get(i).toLowerCase()) != null) {
 				Map<String,Integer> values;
 				if (pair.get("DISK") == null) {
 					values = new HashMap<String,Integer>();
@@ -393,7 +394,7 @@ public class CollectlMonitor extends AbstractMonitor {
 				pair.put("DISK", values);
 				continue;
 			}
-			if (MemoryMetrics.get(metrics.get(i)) != null) {
+			if (MemoryMetrics.get(metrics.get(i).toLowerCase()) != null) {
 				Map<String,Integer> values;
 				if (pair.get("MEMORY") == null) {
 					values = new HashMap<String,Integer>();
@@ -406,7 +407,7 @@ public class CollectlMonitor extends AbstractMonitor {
 				pair.put("MEMORY", values);
 				continue;
 			}
-			if (NetworkMetrics.get(metrics.get(i)) != null) {
+			if (NetworkMetrics.get(metrics.get(i).toLowerCase()) != null) {
 				Map<String,Integer> values;
 				if (pair.get("NETWORK") == null) {
 					values = new HashMap<String,Integer>();

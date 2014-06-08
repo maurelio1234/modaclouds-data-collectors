@@ -177,6 +177,12 @@ public class StartupTimeMonitor extends AbstractMonitor{
 						case "isSpot":
 							vm.isSpot = Boolean.valueOf(par.getValue());
 							break;
+						case "keyFile":
+							vm.keyFile = par.getValue();
+							break;
+						case "password":
+							vm.password = par.getValue();
+							break;
 						}
 					}
 					break;
@@ -222,12 +228,12 @@ public class StartupTimeMonitor extends AbstractMonitor{
 
 			while(true){
 				try {
-					if (vm.keyFile != null) {
+					if (vm.keyFile != null || !vm.keyFile.equals("")) {
 						jsch.addIdentity(vm.keyFile);
 					}
 					Session session = jsch.getSession(vm.userName, vm.publicIP, 22);
 
-					if (vm.password != null) {
+					if (vm.password != null || !vm.password.equals("")) {
 						session.setPassword(vm.password);
 					}
 

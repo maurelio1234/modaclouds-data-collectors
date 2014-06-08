@@ -357,13 +357,13 @@ public class JMXMonitor extends AbstractMonitor {
 			double value = 0;
 
 			switch (metricList.get(index).getMetricName().toLowerCase()) {
-			case "peakthreadcount":
+			case "peakthreadcountjmx":
 				value = threadMBean.getPeakThreadCount();
 				break;
-			case "heapmemoryused":
+			case "heapmemoryusedjmx":
 				value = memoryMBean.getHeapMemoryUsage().getUsed();
 				break;
-			case "uptime":
+			case "uptimejmx":
 				value = remoteRuntime.getUptime();
 				break;
 			}

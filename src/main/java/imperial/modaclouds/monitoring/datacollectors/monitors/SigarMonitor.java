@@ -179,7 +179,7 @@ public class SigarMonitor extends AbstractMonitor {
 				case "cpustolen":
 					value = sigar.getCpuPerc().getStolen();
 					break;
-				case "memoryused":
+				case "memused":
 					value = sigar.getMem().getActualUsed();
 					break;
 				}

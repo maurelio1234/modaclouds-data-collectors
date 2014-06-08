@@ -181,7 +181,7 @@ public class CloudWatchMonitor extends AbstractMonitor {
 
 							temp.setMetricName(dc.getCollectedMetric());
 
-							measureNames.add(dc.getCollectedMetric());
+							measureNames.add(dc.getCollectedMetric().replace("CloudWatch", ""));
 
 							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
 

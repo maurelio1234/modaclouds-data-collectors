@@ -44,7 +44,7 @@ import polimi.deib.csparql_rest_api.exception.StreamErrorException;
  *
 
  */
-public class ApacheLogFileMonitor extends AbstractMonitor {
+public class LogFileMonitor extends AbstractMonitor {
 
 	/**
 	 * Extract the request information according the regular expression.
@@ -108,10 +108,10 @@ public class ApacheLogFileMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public ApacheLogFileMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+	public LogFileMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		monitorName = "apache";
+		monitorName = "logFile";
 
 		this.ownURI = ownURI;
 
