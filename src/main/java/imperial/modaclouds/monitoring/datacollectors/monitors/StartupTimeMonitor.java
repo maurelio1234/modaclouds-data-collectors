@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -73,7 +73,6 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	 */
 	private String monitoredTarget;
 
-	private String ownURI;
 
 	/**
 	 * The description of the VM.
@@ -126,11 +125,11 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public StartupTimeMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+	public StartupTimeMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
+		super(ownURI, mode);
 		monitorName = "startupTime";
-		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();

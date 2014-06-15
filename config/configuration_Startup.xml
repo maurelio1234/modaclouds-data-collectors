@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+
+    Copyright ${year} imperial
+    Contact: imperial <weikun.wang11@imperial.ac.uk>
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+           http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<startupTime>
+	<vm>
+		<connectTimeout>3000</connectTimeout>
+		<instanceID>i-d5420994</instanceID>
+		<launchTime>28/02/2014 09:29:58</launchTime>
+		<publicIP>54.195.77.129</publicIP>
+		<userName>ubuntu</userName>
+		<keyFile>D:\Dropbox\awsiclkp02.pem</keyFile>
+		<isSpot>no</isSpot>
+	</vm>
+	<vm>
+		<connectTimeout>3000</connectTimeout>
+		<instanceID></instanceID>
+		<launchTime>28/02/2014 09:29:58</launchTime>
+		<publicIP>109.231.122.194</publicIP>
+		<userName>ubuntu</userName>
+		<password>123456</password>
+		<isSpot>no</isSpot>
+	</vm>
+</startupTime>

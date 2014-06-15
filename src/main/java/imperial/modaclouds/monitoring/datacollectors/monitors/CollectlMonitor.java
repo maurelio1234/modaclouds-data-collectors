@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,6 +25,7 @@ import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -37,6 +38,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -126,8 +137,6 @@ public class CollectlMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
-	private String ownURI;
-
 
 
 	/**
@@ -136,14 +145,14 @@ public class CollectlMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public CollectlMonitor(String ownURI) throws MalformedURLException, FileNotFoundException 
+	public CollectlMonitor(String ownURI, String mode) throws MalformedURLException, FileNotFoundException 
 	{
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
+		super(ownURI, mode);
+
 		monitorName = "collectl";
 		serverIP = "localhost";
-
-		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();		
@@ -163,37 +172,39 @@ public class CollectlMonitor extends AbstractMonitor {
 			// correspond to command: collectl -scndm --verbose -A server
 			while(!colt.isInterrupted()) 
 			{
-				if (System.currentTimeMillis() - startTime > 10000) {
-					ArrayList<String> requiredMetric = new ArrayList<String>();
+				if (mode.equals("kb")) {
+					if (System.currentTimeMillis() - startTime > 10000) {
+						ArrayList<String> requiredMetric = new ArrayList<String>();
 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
+						Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+						for (KBEntity kbEntity: dcConfig) {
+							DataCollector dc = (DataCollector) kbEntity;
 
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+							if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+								if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
 
-								requiredMetric.add(dc.getCollectedMetric());
+									requiredMetric.add(dc.getCollectedMetric());
 
-								Set<Parameter> parameters = dc.getParameters();
+									Set<Parameter> parameters = dc.getParameters();
 
-								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+									monitoredTarget = dc.getTargetResources().iterator().next().getUri();
 
-								for (Parameter par: parameters) {
-									switch (par.getName()) {
-									case "samplingProbability":
-										samplingProb = Double.valueOf(par.getValue());
-										break;
+									for (Parameter par: parameters) {
+										switch (par.getName()) {
+										case "samplingProbability":
+											samplingProb = Double.valueOf(par.getValue());
+											break;
+										}
 									}
 								}
 							}
 						}
+
+						metricPair = parseMetrics(requiredMetric);
+
+						startTime = System.currentTimeMillis();
 					}
-
-					metricPair = parseMetrics(requiredMetric);
-
-					startTime = System.currentTimeMillis();
 				}
 
 				boolean isSent = false;
@@ -223,92 +234,105 @@ public class CollectlMonitor extends AbstractMonitor {
 							toCollect = PROCESS;
 						}
 
-						try{
-							if (!values[0].contains("#")) {
-								Map<String,Integer> metrics;
-								switch (toCollect) {
-								case CPU:
-									metrics = metricPair.get("CPU");
 
-									if (metrics == null)
-										continue;
+						if (!values[0].contains("#")) {
+							Map<String,Integer> metrics;
+							switch (toCollect) {
+							case CPU:
+								metrics = metricPair.get("CPU");
+								if (metrics == null)
+									continue;
 
-									for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
-										String key = entry.getKey();
-										Integer value = entry.getValue();
+								for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
+									String key = entry.getKey();
+									Integer value = entry.getValue();
 
-										if (isSent) {
-											if (key.equals("CPUUtilization")) {
-												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), "CPUUtilization", monitoredTarget);
-												//sendMonitoringDatum(100-Integer.valueOf(values[8]),MC.CPUUtilization,monitoredResourceURL,monitoredResource);
+									if (isSent) {
+										if (key.toLowerCase().equals("cpuutilizationcollectl")) {
+											try {
+												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+											} catch (ServerErrorException
+													| StreamErrorException
+													| ValidationErrorException e) {
+												e.printStackTrace();
 											}
-											else {
+										}
+										else {
+											try {
 												ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-												//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
+											} catch (ServerErrorException
+													| StreamErrorException
+													| ValidationErrorException e) {
+												e.printStackTrace();
 											}
 										}
 									}
-									break;
-								case DISK:
-									metrics = metricPair.get("DISK");
-
-									if (metrics == null)
-										continue;
-
-									for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
-										String key = entry.getKey();
-										Integer value = entry.getValue();
-
-										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										}
-										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
-									}
-									break;
-								case MEMORY:
-									metrics = metricPair.get("MEMORY");
-
-									if (metrics == null)
-										continue;
-
-									for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
-										String key = entry.getKey();
-										Integer value = entry.getValue();
-
-										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										}
-										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
-									}
-									break;
-								case NETWORK:
-									metrics = metricPair.get("NETWORK");
-
-									if (metrics == null)
-										continue;
-
-									for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
-										String key = entry.getKey();
-										Integer value = entry.getValue();
-
-										if (isSent) {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										}
-										//sendMonitoringDatum(Integer.valueOf(values[value]),ResourceFactory.createResource(MC.getURI() + key),monitoredResourceURL,monitoredResource);
-									}
-									break;
-									//								case PROCESS:
-									//									measure.push("ProcessVSZ--"+values[18], values[7],"collectl");
-									//									measure.push("ProcessRSS--"+values[18], values[8],"collectl");
-									//									break;
 								}
+								break;
+							case DISK:
+								metrics = metricPair.get("DISK");
+
+								if (metrics == null)
+									continue;
+
+								for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
+									String key = entry.getKey();
+									Integer value = entry.getValue();
+
+									if (isSent) {
+										try {
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+										} catch (ServerErrorException
+												| StreamErrorException
+												| ValidationErrorException e) {
+											e.printStackTrace();
+										}
+									}
+								}
+								break;
+							case MEMORY:
+								metrics = metricPair.get("MEMORY");
+
+								if (metrics == null)
+									continue;
+
+								for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
+									String key = entry.getKey();
+									Integer value = entry.getValue();
+
+									if (isSent) {
+										try {
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+										} catch (ServerErrorException
+												| StreamErrorException
+												| ValidationErrorException e) {
+											e.printStackTrace();
+										}
+									}
+								}
+								break;
+							case NETWORK:
+								metrics = metricPair.get("NETWORK");
+
+								if (metrics == null)
+									continue;
+
+								for (Map.Entry<String, Integer> entry : metrics.entrySet()) {
+									String key = entry.getKey();
+									Integer value = entry.getValue();
+
+									if (isSent) {
+										try {
+											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+										} catch (ServerErrorException
+												| StreamErrorException
+												| ValidationErrorException e) {
+											e.printStackTrace();
+										}
+									}
+								}
+								break;
 							}
-						} catch (ServerErrorException e) {
-							e.printStackTrace();
-						} catch (StreamErrorException e) {
-							e.printStackTrace();
-						} catch (ValidationErrorException e) {
-							e.printStackTrace();
 						}
 					}
 				}
@@ -335,9 +359,9 @@ public class CollectlMonitor extends AbstractMonitor {
 		Map<String,Map<String,Integer>> pair = new HashMap<String,Map<String,Integer>>();
 
 		Map<String,Integer> CPUMetrics = new HashMap<String,Integer>();
-		CPUMetrics.put("cpuutilisationsyscollectl", 3);
-		CPUMetrics.put("cpuutilisationusercollectl", 1);
-		CPUMetrics.put("cpuutilisationwaitcollectl", 4);
+		CPUMetrics.put("cpuutilizationsyscollectl", 3);
+		CPUMetrics.put("cpuutilizationusercollectl", 1);
+		CPUMetrics.put("cpuutilizationwaitcollectl", 4);
 		CPUMetrics.put("cpuutilizationcollectl", 8);
 		CPUMetrics.put("contextswitchcollectl", 11);
 		CPUMetrics.put("cpuutilstolencollectl", 7);
@@ -377,7 +401,7 @@ public class CollectlMonitor extends AbstractMonitor {
 					values = pair.get("CPU");
 				}
 
-				values.put(metrics.get(i), CPUMetrics.get(metrics.get(i)));
+				values.put(metrics.get(i), CPUMetrics.get(metrics.get(i).toLowerCase()));
 				pair.put("CPU", values);
 				continue;
 			}
@@ -390,7 +414,7 @@ public class CollectlMonitor extends AbstractMonitor {
 					values = pair.get("DISK");
 				}
 
-				values.put(metrics.get(i), DiskMetrics.get(metrics.get(i)));
+				values.put(metrics.get(i), DiskMetrics.get(metrics.get(i).toLowerCase()));
 				pair.put("DISK", values);
 				continue;
 			}
@@ -403,7 +427,7 @@ public class CollectlMonitor extends AbstractMonitor {
 					values = pair.get("MEMORY");
 				}
 
-				values.put(metrics.get(i), MemoryMetrics.get(metrics.get(i)));
+				values.put(metrics.get(i), MemoryMetrics.get(metrics.get(i).toLowerCase()));
 				pair.put("MEMORY", values);
 				continue;
 			}
@@ -416,7 +440,7 @@ public class CollectlMonitor extends AbstractMonitor {
 					values = pair.get("NETWORK");
 				}
 
-				values.put(metrics.get(i), NetworkMetrics.get(metrics.get(i)));
+				values.put(metrics.get(i), NetworkMetrics.get(metrics.get(i).toLowerCase()));
 				pair.put("NETWORK", values);
 				continue;
 			}
@@ -431,33 +455,85 @@ public class CollectlMonitor extends AbstractMonitor {
 
 		List<Integer> periodList = new ArrayList<Integer>();
 
-		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-		for (KBEntity kbEntity: dcConfig) {
-			DataCollector dc = (DataCollector) kbEntity;
-			if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+		if (mode.equals("kb")) {
 
-				requiredMetric.add(dc.getCollectedMetric());
+			Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+			for (KBEntity kbEntity: dcConfig) {
+				DataCollector dc = (DataCollector) kbEntity;
+				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
 
-				Set<Parameter> parameters = dc.getParameters();
+					requiredMetric.add(dc.getCollectedMetric());
 
-				for (Parameter par: parameters) {
-					switch (par.getName()) {
-					case "serverIP":
-						serverIP = par.getValue();
-						break;
-					case "samplingTime":
-						periodList.add(Integer.valueOf(par.getValue())*1000);
-						break;
-					case "samplingProbability":
-						samplingProb = Double.valueOf(par.getValue());
-						break;
+					Set<Parameter> parameters = dc.getParameters();
+
+					for (Parameter par: parameters) {
+						switch (par.getName()) {
+						case "serverIP":
+							serverIP = par.getValue();
+							break;
+						case "samplingTime":
+							periodList.add(Integer.valueOf(par.getValue())*1000);
+							break;
+						case "samplingProbability":
+							samplingProb = Double.valueOf(par.getValue());
+							break;
+						}
 					}
 				}
 			}
+
+			period = Collections.min(periodList);
+			metricPair = parseMetrics(requiredMetric);
+		}
+		else{
+			try {
+				String folder = new File(".").getCanonicalPath();
+				File file = new File(folder+"/config/configuration_Collectl.xml");
+
+				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+				DocumentBuilder dBuilder;
+				dBuilder = dbFactory.newDocumentBuilder();
+				Document doc = dBuilder.parse(file);
+
+				doc.getDocumentElement().normalize();
+
+				NodeList nList = doc.getElementsByTagName("metricName");
+
+				for (int temp = 0; temp < nList.getLength(); temp++) {
+
+					Node nNode = nList.item(temp);
+
+					requiredMetric.add(nNode.getTextContent());
+				}
+
+				NodeList nList_period = doc.getElementsByTagName("collectl-metric");
+
+				for (int i = 0; i < nList_period.getLength(); i++) {
+
+					Node nNode = nList_period.item(i);
+
+					if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+
+						Element eElement = (Element) nNode;
+
+						period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
+						monitoredTarget = eElement.getElementsByTagName("monitoredTarget").item(0).getTextContent();
+					}
+				}
+
+				samplingProb = 1;
+				metricPair = parseMetrics(requiredMetric);
+
+			} catch (ParserConfigurationException e1) {
+				e1.printStackTrace();
+			} catch (SAXException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 
-		period = Collections.min(periodList);
-		metricPair = parseMetrics(requiredMetric);
+
 		//start collectl if collectl has not started yet
 		boolean isRunning = false;
 
@@ -518,7 +594,7 @@ public class CollectlMonitor extends AbstractMonitor {
 	private class CollectlRunner implements Runnable{
 		public void run(){
 			try {
-				float freq = ((float) period) /1000;
+				float freq = ((float) period);
 				//Runtime.getRuntime().exec("collectl -scnDmZ --verbose -A server -i" + freq + ":5");
 				Runtime.getRuntime().exec("collectl -scnDm --verbose -A server -i" + freq);
 			} catch (IOException e) {

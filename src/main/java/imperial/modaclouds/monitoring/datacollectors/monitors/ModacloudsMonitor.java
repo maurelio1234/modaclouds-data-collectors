@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,6 +20,10 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.restlet.Application;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
@@ -31,12 +35,15 @@ import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
 
 import java.io.*;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 /**
@@ -69,13 +76,24 @@ public class ModacloudsMonitor extends Application
 	 */
 	private static DDAConnector ddaConnector;
 
+	/**
+	 * URI of the DC.
+	 */
 	private static String ownURI;	
-	
+
+	/**
+	 * mode of the DC.
+	 */
+	private static String mode;
+
 	/**
 	 * Knowledge base connector.
 	 */
 	private static KBConnector kbConnector;
 
+	/**
+	 * The mapp
+	 */
 	private static Map<String,String> metricCollectorMapping;
 
 	/**
@@ -87,7 +105,7 @@ public class ModacloudsMonitor extends Application
 	 * Initial setup of the monitor.
 	 */
 	public static void initSetup() throws ParserConfigurationException, SAXException, IOException
-	{
+	{		
 		dcIndex = new HashMap<String,Integer>();
 		dcIndex.put("jmx", 1);
 		dcIndex.put("collectl", 2);
@@ -138,55 +156,55 @@ public class ModacloudsMonitor extends Application
 			AbstractMonitor newMonitor = null;
 			switch (intArray[i]) {
 			case 1:
-				newMonitor = new JMXMonitor(ownURI);
+				newMonitor = new JMXMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 2:
-				newMonitor = new CollectlMonitor(ownURI);
+				newMonitor = new CollectlMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 3:
-				newMonitor = new SigarMonitor(ownURI);
+				newMonitor = new SigarMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 4:
-				newMonitor = new OFBizLogFileMonitor(ownURI);
+				newMonitor = new OFBizLogFileMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 5:
-				newMonitor = new LogFileMonitor(ownURI);
+				newMonitor = new LogFileMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 6:
-				newMonitor = new MySQLMonitor(ownURI);
+				newMonitor = new MySQLMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 7:
-				newMonitor = new CloudWatchMonitor(ownURI);
+				newMonitor = new CloudWatchMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 8:
-				newMonitor = new FlexiMonitor(ownURI);
+				newMonitor = new FlexiMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 9:
-				newMonitor = new EC2SpotPriceMonitor(ownURI);
+				newMonitor = new EC2SpotPriceMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 10:
-				newMonitor = new StartupTimeMonitor(ownURI);
+				newMonitor = new StartupTimeMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 11:
-				newMonitor = new CostMonitor(ownURI);
+				newMonitor = new CostMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 12:
-				newMonitor = new AvailabilityMonitor(ownURI);
+				newMonitor = new AvailabilityMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			case 13:
-				newMonitor = new DetailedCostMonitor(ownURI);
+				newMonitor = new DetailedCostMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
 			}
@@ -242,76 +260,86 @@ public class ModacloudsMonitor extends Application
 	 */
 	public static void main( String[] args ) throws Exception
 	{
-		if (args.length < 1) {
-			System.out.println("Please input the uri of the instance");
+		if (args.length < 2) {
+			System.out.println("Please input the uri of the instance and the mode of the DC");
 			System.exit(-1);
 		}
-		
+
 		ownURI = args[0];
-		
-		//ddaConnector = DDAConnector.getInstance();
-		try {
-			//objectStoreConnector = ObjectStoreConnector.getInstance();
-			//MO.setKnowledgeBaseURL(objectStoreConnector.getKBUrl());
-
-			kbConnector = KBConnector.getInstance();
-			//kbConnector.setKbURL(new URL(MO.getKnowledgeBaseDataURL()));
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		Logger.getLogger( "org" ).setLevel( Level.WARN );
+		mode = args[1];
 
 		initSetup();
+		
+		if (mode.equals("kb")) {
+			//ddaConnector = DDAConnector.getInstance();
+			try {
+				//objectStoreConnector = ObjectStoreConnector.getInstance();
+				//MO.setKnowledgeBaseURL(objectStoreConnector.getKBUrl());
 
-		List<String> oldCollectors = new ArrayList<String>(); 
+				kbConnector = KBConnector.getInstance();
+				//kbConnector.setKbURL(new URL(MO.getKnowledgeBaseDataURL()));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 
-		long startTime = 0;
+			Logger.getLogger( "org" ).setLevel( Level.WARN );
 
-		while(true) {
 
-			if (System.currentTimeMillis() - startTime > 10000) {
 
-				List<String> newCollectors = new ArrayList<String>(); 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-				
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
-					
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-					
-					//dc.setEnabled(true);
-					//kbConnector.add(dc);
-						if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
-							newCollectors.add(findCollector(dc.getCollectedMetric()));
+			List<String> oldCollectors = new ArrayList<String>(); 
+
+			long startTime = 0;
+
+			while(true) {
+
+				if (System.currentTimeMillis() - startTime > 10000) {
+
+					List<String> newCollectors = new ArrayList<String>(); 
+					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+
+					for (KBEntity kbEntity: dcConfig) {
+						DataCollector dc = (DataCollector) kbEntity;
+
+						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+
+							//dc.setEnabled(true);
+							//kbConnector.add(dc);
+							if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
+								newCollectors.add(findCollector(dc.getCollectedMetric()));
+							}
 						}
 					}
-				}
-				
-				List<String> toRun = new ArrayList<String>();
-				List<String> toStop = new ArrayList<String>();
-				
-				for (String newCollector: newCollectors) {
-					if (!oldCollectors.contains(newCollector)) {
-						toRun.add(newCollector);
-					}
-				}
-				
-				for (String oldCollector: oldCollectors) {
-					if (!newCollectors.contains(oldCollector)) {
-						toStop.add(oldCollector);
-					}
-				}
 
-				runMonitoring(toRun.toArray(new String[toRun.size()]));
-				stopMonitoring(toStop.toArray(new String[toStop.size()]));
-				
-				oldCollectors = newCollectors;
-				
-				startTime = System.currentTimeMillis();
-				
-				Thread.sleep(10000);
+					List<String> toRun = new ArrayList<String>();
+					List<String> toStop = new ArrayList<String>();
+
+					for (String newCollector: newCollectors) {
+						if (!oldCollectors.contains(newCollector)) {
+							toRun.add(newCollector);
+						}
+					}
+
+					for (String oldCollector: oldCollectors) {
+						if (!newCollectors.contains(oldCollector)) {
+							toStop.add(oldCollector);
+						}
+					}
+
+					runMonitoring(toRun.toArray(new String[toRun.size()]));
+					stopMonitoring(toStop.toArray(new String[toStop.size()]));
+
+					oldCollectors = newCollectors;
+
+					startTime = System.currentTimeMillis();
+
+					Thread.sleep(10000);
+				}
 			}
+		}
+		else {
+			String[] strArray = args[2].split(",");
+			
+			runMonitoring(strArray);
 		}
 
 		//		if (args.length != 0) {
@@ -404,10 +432,10 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("availability", "availability");
 			metricCollectorMapping.put("flexi", "flexi");
 		}
-		
+
 		String collector;
 		collector = metricCollectorMapping.get(metricName.toLowerCase());
-		
+
 		if (collector == null) {
 			System.out.println("Metric: "+metricName+" not found");
 			return null;

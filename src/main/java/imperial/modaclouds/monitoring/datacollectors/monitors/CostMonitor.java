@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -92,8 +92,6 @@ public class CostMonitor extends AbstractMonitor{
 	 */
 	private double samplingProb;
 
-	private String ownURI;
-
 	/**
 	 * The measure set to store the monitoring value.
 	 */
@@ -128,11 +126,12 @@ public class CostMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public CostMonitor (String ownURI) throws MalformedURLException, FileNotFoundException {
+	public CostMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
+		super(ownURI, mode);
+		
 		monitorName = "cost";
-		this.ownURI = ownURI;
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();

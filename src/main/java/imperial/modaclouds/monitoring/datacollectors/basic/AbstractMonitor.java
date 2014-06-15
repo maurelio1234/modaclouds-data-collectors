@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -23,6 +23,11 @@ package imperial.modaclouds.monitoring.datacollectors.basic;
  */
 public abstract class AbstractMonitor implements Runnable
 {	
+	public AbstractMonitor(String ownURI, String mode) {
+		this.ownURI = ownURI;
+		this.mode = mode;
+	}
+	
 	/**
 	 * Start monitor.
 	 */
@@ -43,6 +48,10 @@ public abstract class AbstractMonitor implements Runnable
 	 */
 	protected String monitorName;
 	
+	protected String mode;
+	
+	protected String ownURI;
+
 	/**
 	 * Return the name of the monitor.
 	 */

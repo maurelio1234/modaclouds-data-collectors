@@ -2,11 +2,11 @@
  * Copyright ${year} imperial
  * Contact: imperial <weikun.wang11@imperial.ac.uk>
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the BSD 3-Clause License (the "License");
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
- *        http://www.apache.org/licenses/LICENSE-2.0
+ *        http://opensource.org/licenses/BSD-3-Clause
  *
  *    Unless required by applicable law or agreed to in writing, software
  *    distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,15 +25,26 @@ import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -78,7 +89,6 @@ public class SigarMonitor extends AbstractMonitor {
 	 */
 	private List<Metric> metricList; 
 
-	private String ownURI;
 
 	/**
 	 * Constructor of the class.
@@ -87,12 +97,12 @@ public class SigarMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public SigarMonitor( String ownURI) throws MalformedURLException, FileNotFoundException {
+	public SigarMonitor( String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
 		//this.monitoredResourceID = UUID.randomUUID().toString();
 		//this.monitoredResourceID = "FrontendVM";
-		monitorName = "sigar";
+		super(ownURI, mode);
 
-		this.ownURI = ownURI;
+		monitorName = "sigar";
 
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
@@ -111,51 +121,114 @@ public class SigarMonitor extends AbstractMonitor {
 
 		while (!sigt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 10000) {
+			if (mode.equals("kb")) {
 
-				period = new ArrayList<Integer>();
-				nextPauseTime = new ArrayList<Integer>();
+				if (System.currentTimeMillis() - startTime > 10000) {
 
-				metricList = new ArrayList<Metric>();
+					period = new ArrayList<Integer>();
+					nextPauseTime = new ArrayList<Integer>();
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+					metricList = new ArrayList<Metric>();
 
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					for (KBEntity kbEntity: dcConfig) {
+						DataCollector dc = (DataCollector) kbEntity;
 
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
-							Metric temp = new Metric();
+						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-							temp.setMetricName(dc.getCollectedMetric());
+							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
+								Metric temp = new Metric();
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+								temp.setMetricName(dc.getCollectedMetric());
 
-							System.out.println("Received target: " + monitoredTarget);
+								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
 
-							Set<Parameter> parameters = dc.getParameters();
+								System.out.println("Received target: " + monitoredTarget);
 
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "samplingTime":
-									period.add(Integer.valueOf(par.getValue())*1000);
-									nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
-									break;
-								case "samplingProbability":
-									temp.setSamplingProb(Double.valueOf(par.getValue()));
-									break;
+								Set<Parameter> parameters = dc.getParameters();
+
+								for (Parameter par: parameters) {
+									switch (par.getName()) {
+									case "samplingTime":
+										period.add(Integer.valueOf(par.getValue())*1000);
+										nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
+										break;
+									case "samplingProbability":
+										temp.setSamplingProb(Double.valueOf(par.getValue()));
+										break;
+									}
 								}
-							}
 
-							metricList.add(temp);
+								metricList.add(temp);
+							}
 						}
 					}
+
+					startTime = System.currentTimeMillis();
 				}
-
-				startTime = System.currentTimeMillis();
 			}
+			else {
+				if (System.currentTimeMillis() - startTime > 3600000) {
+					try {
+						period = new ArrayList<Integer>();
+						nextPauseTime = new ArrayList<Integer>();
 
+						metricList = new ArrayList<Metric>();
+
+						int temp_period = 0;
+
+						String folder = new File(".").getCanonicalPath();
+						File file = new File(folder+"/config/configuration_SIGAR.xml");
+
+						DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+						DocumentBuilder dBuilder;
+						dBuilder = dbFactory.newDocumentBuilder();
+						Document doc = dBuilder.parse(file);
+
+						doc.getDocumentElement().normalize();
+
+						NodeList nList_jdbc = doc.getElementsByTagName("sigar-metric");
+
+						for (int i = 0; i < nList_jdbc.getLength(); i++) {
+
+							Node nNode = nList_jdbc.item(i);
+
+							if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+
+								Element eElement = (Element) nNode;
+								monitoredTarget = eElement.getElementsByTagName("monitoredTarget").item(0).getTextContent();
+								temp_period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
+							}
+						}
+
+						NodeList nList = doc.getElementsByTagName("metricName");
+
+						for (int temp = 0; temp < nList.getLength(); temp++) {
+
+							Node nNode = nList.item(temp);
+
+							Metric temp_metric = new Metric();
+							temp_metric.setMetricName(nNode.getTextContent());
+							temp_metric.setSamplingProb(1);
+							metricList.add(temp_metric);
+
+							period.add(temp_period*1000);
+							nextPauseTime.add(temp_period*1000);
+						}
+
+
+
+					} catch (ParserConfigurationException e1) {
+						e1.printStackTrace();
+					} catch (SAXException e) {
+						e.printStackTrace();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					startTime = System.currentTimeMillis();
+				}
+			}
 
 
 			int toSleep = Collections.min(nextPauseTime);

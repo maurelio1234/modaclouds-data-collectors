@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+
+    Copyright ${year} imperial
+    Contact: imperial <weikun.wang11@imperial.ac.uk>
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+           http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<mysql-metric>
+        <databaseAddress>jdbc:drizzle://109.231.122.220:3306/</databaseAddress>
+        <databaseUser>ofbiz</databaseUser>
+        <databasePassword>123456</databasePassword>
+        <monitorPeriod>10</monitorPeriod>
+        <metricName>Uptime</metricName>
+        <metricName>Uptime_since_flush_status</metricName>
+        <metricName>Threads_running</metricName>
+        <metricName>Threads_cached</metricName>
+        <metricName>Threads_connected</metricName>
+        <metricName>Threads_created</metricName>
+        <metricName>Queries</metricName>
+        <metricName>Bytes_received</metricName>
+        <metricName>Bytes_sent</metricName>
+        <metricName>Connections</metricName>
+        <metricName>Aborted_connects</metricName>
+        <metricName>Aborted_clients</metricName>
+        <metricName>Table_locks_immediate</metricName>
+        <metricName>Table_locks_waited</metricName>
+        <metricName>Com_insert</metricName>
+        <metricName>Com_delete</metricName>
+        <metricName>Com_update</metricName>
+        <metricName>Com_select</metricName>
+        <metricName>Qcache_hits</metricName>
+		<monitoredTarget>test</monitoredTarget>
+</mysql-metric>

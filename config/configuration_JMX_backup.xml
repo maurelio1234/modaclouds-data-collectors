@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+
+    Copyright ${year} imperial
+    Contact: imperial <weikun.wang11@imperial.ac.uk>
+
+       Licensed under the Apache License, Version 2.0 (the "License");
+       you may not use this file except in compliance with the License.
+       You may obtain a copy of the License at
+
+           http://www.apache.org/licenses/LICENSE-2.0
+
+       Unless required by applicable law or agreed to in writing, software
+       distributed under the License is distributed on an "AS IS" BASIS,
+       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+       See the License for the specific language governing permissions and
+       limitations under the License.
+
+-->
+<reflectionXML>
+    <categoryList>
+		<category categoryName="CPU" resolution="5000">
+            <metricList>
+                <metric metricName="CPUUtilisation_JMX">
+                    <functionList>
+                        <function functionID="1" className="com.sun.management.OperatingSystemMXBean" functionName="getProcessCpuTime"/>
+                    </functionList>
+                </metric>
+            </metricList>
+        </category>
+        <category categoryName="Thread" resolution="5000">
+            <metricList>
+                <metric metricName="ThreadCount_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.ThreadMXBean" functionName="getThreadCount"/>
+                    </functionList>
+                </metric>
+				<metric metricName="TotalStartedThreadCount_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.ThreadMXBean" functionName="getTotalStartedThreadCount"/>
+                    </functionList>
+                </metric>
+				<metric metricName="PeakThreadCount_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.ThreadMXBean" functionName="getPeakThreadCount"/>
+                    </functionList>
+                </metric>
+				<metric metricName="DaemonThreadCount_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.ThreadMXBean" functionName="getDaemonThreadCount"/>
+                    </functionList>
+                </metric>
+            </metricList>
+        </category>
+		<category categoryName="Memory" resolution="5000">
+            <metricList>
+                <metric metricName="HeapMemoryUsed_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+                    </functionList>
+                </metric>
+				<metric metricName="HeapMemoryCommitted_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getCommitted"/>
+                    </functionList>
+                </metric>
+				<metric metricName="HeapMemoryUsageMax_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getMax"/>
+                    </functionList>
+                </metric>
+				<metric metricName="NonHeapMemoryUsed_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getNonHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+                    </functionList>
+                </metric>
+				<metric metricName="NonHeapMemoryCommitted_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getNonHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getCommitted"/>
+                    </functionList>
+                </metric>
+				<metric metricName="NonHeapMemoryUsageMax_JMX">
+                    <functionList>
+                        <function functionID="1" className="java.lang.management.MemoryMXBean" functionName="getNonHeapMemoryUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getMax"/>
+                    </functionList>
+                </metric>
+            </metricList>
+        </category>
+		<category categoryName="MemoryPool" resolution="5000">
+			<metricList>
+				<metric metricName="PeakUsage_JMX">
+					<functionList>
+						<function functionID="0" className="java.lang.management.MemoryPoolMXBean" functionName="getName"/>
+						<function functionID="1" className="java.lang.management.MemoryPoolMXBean" functionName="getPeakUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+					</functionList>
+				</metric>
+				<metric metricName="Usage_JMX">
+					<functionList>
+						<function functionID="0" className="java.lang.management.MemoryPoolMXBean" functionName="getName"/>
+						<function functionID="1" className="java.lang.management.MemoryPoolMXBean" functionName="getUsage"/>
+						<function functionID="2" className="java.lang.management.MemoryUsage" functionName="getUsed"/>
+					</functionList>
+				</metric>
+			</metricList>
+		</category>
+		<category categoryName="RunTime" resolution="5000">
+			<metricList>
+				<metric metricName="Uptime_JMX">
+					<functionList>
+                        <function functionID="1" className="java.lang.management.RuntimeMXBean" functionName="getUptime"/>
+                    </functionList>
+				</metric>
+			</metricList>
+		</category>
+    </categoryList>
+</reflectionXML>

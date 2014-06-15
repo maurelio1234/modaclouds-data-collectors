@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sigar-metric>
+		<monitorPeriod>10</monitorPeriod>
+        <metricName>CPUUtilization</metricName>
+		<metricName>CPUStolen</metricName>
+		<metricName>MemUsed</metricName>
+		<monitoredTarget>test</monitoredTarget>
+<sigar-metric>
