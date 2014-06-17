@@ -24,6 +24,7 @@ import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
 import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -34,6 +35,16 @@ import java.util.Date;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import polimi.deib.csparql_rest_api.exception.ServerErrorException;
 import polimi.deib.csparql_rest_api.exception.StreamErrorException;
@@ -111,7 +122,7 @@ public class LogFileMonitor extends AbstractMonitor {
 		//this.monitoredTarget = monitoredResourceID;
 		super(ownURI, mode);
 		monitorName = "logFile";
-		
+
 		ddaConnector = DDAConnector.getInstance();
 		kbConnector = KBConnector.getInstance();
 
@@ -125,55 +136,93 @@ public class LogFileMonitor extends AbstractMonitor {
 
 		while(!almt.isInterrupted()) {
 
-			if (System.currentTimeMillis() - startTime > 10000) {
+			if (mode.equals("kb")) {
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+				if (System.currentTimeMillis() - startTime > 10000) {
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+					for (KBEntity kbEntity: dcConfig) {
+						DataCollector dc = (DataCollector) kbEntity;
 
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("apache")) {
+						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
-							Set<Parameter> parameters = dc.getParameters();
+							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("logfile")) {
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+								Set<Parameter> parameters = dc.getParameters();
 
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "fileName":
-									fileName = par.getValue();
-									break;
-								case "pattern":
-									pattern = par.getValue();
-									break;
-								case "samplingTime":
-									period = Integer.valueOf(par.getValue())*1000;
-									break;
-								case "samplingProbability":
-									samplingProb = Double.valueOf(par.getValue());
-									break;
+								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+
+								for (Parameter par: parameters) {
+									switch (par.getName()) {
+									case "fileName":
+										fileName = par.getValue();
+										break;
+									case "pattern":
+										pattern = par.getValue();
+										break;
+									case "samplingTime":
+										period = Integer.valueOf(par.getValue())*1000;
+										break;
+									case "samplingProbability":
+										samplingProb = Double.valueOf(par.getValue());
+										break;
+									}
 								}
+								break;
 							}
-							break;
 						}
 					}
+					startTime = System.currentTimeMillis();
 				}
-				startTime = System.currentTimeMillis();
+			}
+			else {
+				try {
+					String folder = new File(".").getCanonicalPath();
+					File file = new File(folder+"/config/configuration_LogFileParser.xml");
+
+					DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+					DocumentBuilder dBuilder;
+					dBuilder = dbFactory.newDocumentBuilder();
+					Document doc = dBuilder.parse(file);
+
+					doc.getDocumentElement().normalize();
+
+					NodeList nList_jdbc = doc.getElementsByTagName("logFileParser");
+
+					for (int i = 0; i < nList_jdbc.getLength(); i++) {
+
+						Node nNode = nList_jdbc.item(i);
+
+						if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+
+							Element eElement = (Element) nNode;
+							fileName = eElement.getElementsByTagName("LogFileName").item(0).getTextContent();
+							pattern = eElement.getElementsByTagName("Pattern").item(0).getTextContent();
+							period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent())*1000;
+						}
+					}
+				} catch (ParserConfigurationException e1) {
+					e1.printStackTrace();
+				} catch (SAXException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 
 			requestPattern = Pattern.compile(pattern);
 
-			DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-			Date date = new Date();
+			//DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+			//Date date = new Date();
 
-			String fullFileName = fileName+"."+dateFormat.format(date);
+			//String fullFileName = fileName+"."+dateFormat.format(date);
+			Long t0 = System.currentTimeMillis();
+			RandomAccessFile in = null;
 
 			try {
-				RandomAccessFile in = new RandomAccessFile(fullFileName, "r");
+				in = new RandomAccessFile(fileName, "r");
 				String line;
 
-				Long t0 = System.currentTimeMillis();
 
 				if((line = in.readLine()) != null) {
 					Matcher requestMatcher = requestPattern.matcher(line);
@@ -201,19 +250,23 @@ public class LogFileMonitor extends AbstractMonitor {
 						}
 
 					}	
-				} else {
-					Long t1 = System.currentTimeMillis();
-					try {
-						Thread.sleep(Math.max( period - (t1 - t0), 0));
-					} catch (InterruptedException e) {
-						in.close();
-						Thread.currentThread().interrupt();
-						break;
-					} 
-				}
+				} 
 				in.close();
 			} catch (IOException e) {
 				e.printStackTrace();
+			} 
+			
+			Long t1 = System.currentTimeMillis();
+			try {
+				Thread.sleep(Math.max( period - (t1 - t0), 0));
+			} catch (InterruptedException e) {
+				try {
+					in.close();
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+				Thread.currentThread().interrupt();
+				break;
 			} 
 		} 
 	}
@@ -226,7 +279,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	@Override
 	public void init() {
 		almt.start();
-		System.out.println("Apache log file monitor running!");
+		System.out.println("Log file monitor running!");
 	}
 
 	@Override
@@ -234,7 +287,7 @@ public class LogFileMonitor extends AbstractMonitor {
 		while (!almt.isInterrupted()) {
 			almt.interrupt();
 		}
-		System.out.println("Apache log file monitor stopped!");
+		System.out.println("Log file monitor stopped!");
 	}	
 
 }

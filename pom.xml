@@ -168,37 +168,6 @@
 				<artifactId>maven-deploy-plugin</artifactId>
 				<version>2.7</version>
 			</plugin>
-			<plugin>
-				<groupId>com.mycila</groupId>
-				<artifactId>license-maven-plugin</artifactId>
-				<version>2.6</version>
-				<configuration>
-					<header>${project.basedir}/APACHE-2-header.txt</header>
-					<properties>
-						<organization>imperial</organization>
-						<year>${project.inceptionYear}</year>
-						<owner>imperial</owner>
-						<email>weikun.wang11@imperial.ac.uk</email>
-						<artid>${project.artifactId}</artid>
-					</properties>
-					<excludes>
-						<exclude>**/README</exclude>
-						<exclude>*.log</exclude>
-						<exclude>src/test/resources/**</exclude>
-						<exclude>src/main/resources/**</exclude>
-						<exclude>LICENSE.txt</exclude>
-					</excludes>
-				</configuration>
-				<executions>
-					<execution>
-						<id>check-headers</id>
-						<phase>verify</phase>
-						<goals>
-							<goal>format</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
 						<plugin>
 				<artifactId>maven-deploy-plugin</artifactId>
 				<version>2.8.1</version>
