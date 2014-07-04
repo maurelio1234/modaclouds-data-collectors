@@ -13,7 +13,7 @@ Then run it as:
 ```java
 java -Djava.library.path=<path>/dcs/hyperic-sigar-1.6.4/sigar-bin/lib/ -jar data-collector-VERSION.jar URI mode
 ```
-where the URI is the URI of the instance to monitor and the mode demtermines the way to find the configurations. "kb" means to use the knowledge base and "file" means to use the configuration files.
+where the URI is the URI of the instance to monitor and the mode determines the way to find the configurations. "kb" means to use the knowledge base and "file" means to use the configuration files.
 
 One thing to be noticed is that the "tools.jar" has to be installed locally since it is not in any public maven repository.
 
