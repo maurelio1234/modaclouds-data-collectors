@@ -130,7 +130,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	/**
 	 * Analyze file to extract information.
 	 */
-	private void analyseFile(File file) throws IOException, ParseException {
+	private void analyseFile(File file) throws IOException, ParseException, ServerErrorException, StreamErrorException {
 		if (!file.exists())
 			return;
 
@@ -221,11 +221,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 					if (Math.random() < samplingProb) {
 						ddaConnector.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredTarget);
 					}
-				} catch (ServerErrorException e) {
-					e.printStackTrace();
-				} catch (StreamErrorException e) {
-					e.printStackTrace();
-				} catch (ValidationErrorException e) {
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}		
@@ -356,7 +352,13 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				Arrays.sort(files, Collections.reverseOrder());
 				for (int i = 0; i < files.length; i++) {
-					analyseFile(files[i]);
+					try {
+						analyseFile(files[i]);
+					} catch (ServerErrorException e) {
+						e.printStackTrace();
+					} catch (StreamErrorException e) {
+						e.printStackTrace();
+					}
 
 					if(files[i].delete()){
 						System.out.println(files[i].getName() + " is deleted!");

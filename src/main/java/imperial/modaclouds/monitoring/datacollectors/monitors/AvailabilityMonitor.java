@@ -391,13 +391,9 @@ public class AvailabilityMonitor extends AbstractMonitor{
 				ddaConnector.sendSyncMonitoringDatum("MTTF\t"+key+"\t"+MTTF, "Reliability", monitoredTarget);
 				ddaConnector.sendSyncMonitoringDatum("Availability\t"+key+"\t"+avai, "Availability", monitoredTarget);
 				ddaConnector.sendSyncMonitoringDatum("MTTR\t"+key+"\t"+MTTR, "Reliability", monitoredTarget);
-			} catch (ServerErrorException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
-			} catch (StreamErrorException e) {
-				e.printStackTrace();
-			} catch (ValidationErrorException e) {
-				e.printStackTrace();
-			}
+			} 
 		}
 
 	}
@@ -492,11 +488,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 							temp.lastTime = System.currentTimeMillis();
 						}
 					}
-				} catch (ServerErrorException e) {
-					e.printStackTrace();
-				} catch (StreamErrorException e) {
-					e.printStackTrace();
-				} catch (ValidationErrorException e) {
+				} catch (Exception e) {
 					e.printStackTrace();
 				} 
 
@@ -585,11 +577,7 @@ public class AvailabilityMonitor extends AbstractMonitor{
 								temp.lastTime = System.currentTimeMillis();
 							}
 						}
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
+					} catch (Exception e) {
 						e.printStackTrace();
 					} 
 					try {

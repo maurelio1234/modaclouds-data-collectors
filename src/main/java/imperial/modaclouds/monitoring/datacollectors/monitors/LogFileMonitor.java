@@ -241,13 +241,9 @@ public class LogFileMonitor extends AbstractMonitor {
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 						} catch (NumberFormatException e) {
 							e.printStackTrace();
-						} catch (ServerErrorException e) {
+						} catch (Exception e) {
 							e.printStackTrace();
-						} catch (StreamErrorException e) {
-							e.printStackTrace();
-						} catch (ValidationErrorException e) {
-							e.printStackTrace();
-						}
+						} 
 
 					}	
 				} 

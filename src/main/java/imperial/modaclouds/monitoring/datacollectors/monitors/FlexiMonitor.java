@@ -234,16 +234,10 @@ public class FlexiMonitor extends AbstractMonitor {
 									if (isSent) {
 										ddaConnector.sendSyncMonitoringDatum(m.group(1), metricName, monitoredTarget);
 									}
-								} catch (ServerErrorException e) {
+								} catch (Exception e) {
 									// TODO Auto-generated catch block
 									e.printStackTrace();
-								} catch (StreamErrorException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								} catch (ValidationErrorException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								}
+								} 
 								//sendMonitoringDatum(Double.valueOf(m.group(1)), ResourceFactory.createResource(MC.getURI() + metricName), monitoredResourceURL, monitoredResource);
 								//System.out.println(metricName+"   "+m.group(1));
 								count ++;

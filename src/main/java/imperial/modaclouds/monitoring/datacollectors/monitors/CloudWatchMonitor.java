@@ -236,11 +236,7 @@ public class CloudWatchMonitor extends AbstractMonitor {
 								}
 							}
 						}
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
+					} catch (Exception e) {
 						e.printStackTrace();
 					}
 					//sendMonitoringDatum(Double.valueOf(measureSet.getMeasure(measureName)), ResourceFactory.createResource(MC.getURI() + measureName), monitoredResourceURL, monitoredResource);

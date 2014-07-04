@@ -311,13 +311,9 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				//System.out.println("Spot Instance id: "+key+"\tCost: "+value);
 				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
 			}
-		} catch (ServerErrorException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
-		} catch (StreamErrorException e) {
-			e.printStackTrace();
-		} catch (ValidationErrorException e) {
-			e.printStackTrace();
-		}
+		} 
 	}
 
 	@Override

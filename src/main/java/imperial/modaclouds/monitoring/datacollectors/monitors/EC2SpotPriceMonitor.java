@@ -219,16 +219,10 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 							System.out.println(temp);
 							try {
 								ddaConnector.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredTarget);
-							} catch (ServerErrorException e) {
+							} catch (Exception e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
-							} catch (StreamErrorException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							} catch (ValidationErrorException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
+							} 
 						}
 					}
 				}

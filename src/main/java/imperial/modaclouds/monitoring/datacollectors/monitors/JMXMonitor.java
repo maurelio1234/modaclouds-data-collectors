@@ -376,11 +376,7 @@ public class JMXMonitor extends AbstractMonitor {
 				if (isSent) {
 					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
-			} catch (ServerErrorException e) {
-				e.printStackTrace();
-			} catch (StreamErrorException e) {
-				e.printStackTrace();
-			} catch (ValidationErrorException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 			}
 

@@ -249,13 +249,9 @@ public class StartupTimeMonitor extends AbstractMonitor{
 						vm.startupTime = (currentTime.getTime()-date_launch.getTime())/1000;
 						try {
 							ddaConnector.sendSyncMonitoringDatum(String.valueOf(vm.startupTime), "StartupTime", monitoredTarget);
-						} catch (ServerErrorException e) {
+						} catch (Exception e) {
 							e.printStackTrace();
-						} catch (StreamErrorException e) {
-							e.printStackTrace();
-						} catch (ValidationErrorException e) {
-							e.printStackTrace();
-						}
+						} 
 						//System.out.println(vm.startupTime);
 						break;
 					}

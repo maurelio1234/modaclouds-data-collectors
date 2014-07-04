@@ -251,18 +251,14 @@ public class CollectlMonitor extends AbstractMonitor {
 										if (key.toLowerCase().equals("cpuutilizationcollectl")) {
 											try {
 												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
-											} catch (ServerErrorException
-													| StreamErrorException
-													| ValidationErrorException e) {
+											} catch (Exception e) {
 												e.printStackTrace();
 											}
 										}
 										else {
 											try {
 												ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-											} catch (ServerErrorException
-													| StreamErrorException
-													| ValidationErrorException e) {
+											} catch (Exception e) {
 												e.printStackTrace();
 											}
 										}
@@ -282,9 +278,7 @@ public class CollectlMonitor extends AbstractMonitor {
 									if (isSent) {
 										try {
 											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										} catch (ServerErrorException
-												| StreamErrorException
-												| ValidationErrorException e) {
+										} catch (Exception e) {
 											e.printStackTrace();
 										}
 									}
@@ -303,9 +297,7 @@ public class CollectlMonitor extends AbstractMonitor {
 									if (isSent) {
 										try {
 											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										} catch (ServerErrorException
-												| StreamErrorException
-												| ValidationErrorException e) {
+										} catch (Exception e) {
 											e.printStackTrace();
 										}
 									}
@@ -324,9 +316,7 @@ public class CollectlMonitor extends AbstractMonitor {
 									if (isSent) {
 										try {
 											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
-										} catch (ServerErrorException
-												| StreamErrorException
-												| ValidationErrorException e) {
+										} catch (Exception e) {
 											e.printStackTrace();
 										}
 									}

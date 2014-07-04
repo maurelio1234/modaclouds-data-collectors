@@ -270,13 +270,9 @@ public class SigarMonitor extends AbstractMonitor {
 					System.out.println(value + " " + metricList.get(index).getMetricName() + " " + monitoredTarget);
 					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
-			} catch (ServerErrorException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
-			} catch (StreamErrorException e) {
-				e.printStackTrace();
-			} catch (ValidationErrorException e) {
-				e.printStackTrace();
-			}
+			} 
 
 			long t1 = System.currentTimeMillis();
 

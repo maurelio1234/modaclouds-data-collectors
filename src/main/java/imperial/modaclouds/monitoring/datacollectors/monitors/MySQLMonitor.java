@@ -224,13 +224,9 @@ public class MySQLMonitor extends AbstractMonitor {
 								}
 							}
 						}
-					} catch (ServerErrorException e) {
+					} catch (Exception e) {
 						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
-						e.printStackTrace();
-					}
+					} 
 					//sendMonitoringDatum(Double.valueOf(value), ResourceFactory.createResource(MC.getURI() + variableName), monitoredResourceURL, monitoredResource);
 
 					//System.out.println(variableName + ": " + value);

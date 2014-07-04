@@ -207,16 +207,10 @@ public class CostMonitor extends AbstractMonitor{
 						if (Math.random() < samplingProb) {
 							ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), "Cost", monitoredTarget);
 						}
-					} catch (ServerErrorException e) {
+					} catch (Exception e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					} catch (ValidationErrorException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+					} 
 					//System.out.println(measureName+"  "+String.valueOf(measureSet.getMeasure(measureName)));
 					//measure.push(measureName, String.valueOf(measureSet.getMeasure(measureName)),"EC2");
 				}
