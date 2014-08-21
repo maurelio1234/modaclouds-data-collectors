@@ -16,14 +16,9 @@
  */
 package imperial.modaclouds.monitoring.datacollectors.demo.ofbiz;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.monitors.ModacloudsMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -35,8 +30,9 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -83,20 +79,6 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	 */
 	private int period;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored target.
@@ -108,23 +90,23 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	 */
 	private double samplingProb;
 
+	private DataCollectorAgent dcAgent;
+
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public OFBizLogFileMonitor (String ownURI, String mode ) throws MalformedURLException, FileNotFoundException  {
+	public OFBizLogFileMonitor (String resourceId, String mode ) {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 
-		super(ownURI, mode);
+		super(resourceId, mode);
+		
+		monitoredTarget = resourceId;
 
 		monitorName = "ofbiz";
-
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();;
 	}
 
 	/**
@@ -219,7 +201,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				try {
 					if (Math.random() < samplingProb) {
-						ddaConnector.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredTarget);
+						dcAgent.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredTarget);
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -240,40 +222,26 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				if (System.currentTimeMillis() - startTime > 60000) {
 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
+					Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					for (DCMetaData dc: dcConfig) {
 
-							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ofbiz")) {
+							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("ofbiz")) {
 
-								Set<Parameter> parameters = dc.getParameters();
+								Map<String, String> parameters = dc.getParameters();
 
-								monitoredTarget = dc.getTargetResources().iterator().next().getId();
-
-								for (Parameter par: parameters) {
-									switch (par.getName()) {
-									case "logFileName":
-										fileName = par.getValue();
-										break;
-									case "pattern":
-										pattern = par.getValue();
-										break;
-									case "samplingTime":
-										period = Integer.valueOf(par.getValue());
-										break;
-									case "samplingProbability":
-										samplingProb = Double.valueOf(par.getValue());
-										break;
-									}
-								}
+								fileName = parameters.get("logFileName");
+								pattern = parameters.get("pattern");
+								period = Integer.valueOf(parameters.get("samplingTime"));
+								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+								
+								
 								if (pattern == null) {
 									pattern = "(19|20\\d{2})-(0?[1-9]|1[012])-(0?[1-9]|[12]\\d|3[01]) ([01]?\\d|2[0-3]):([0-5]\\d):([0-5]\\d),(\\d{3}).*\\((http.+?)\\).*\\[\\[\\[(.+?)\\(Domain.*(Request Done).*total:(.*),";
 								}
 								break;
 							}
-						}
+						
 					}
 					startTime = System.currentTimeMillis();
 				}

@@ -17,25 +17,18 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
+import java.util.Map;
 
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -53,25 +46,14 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	 */
 	private Thread sutm;
 
-	/**
-	 * Monitoring period.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	private ObjectStoreConnector objectStoreConnector;
+	
 
 	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
+
+	private DataCollectorAgent dcAgent;
 
 
 	/**
@@ -125,16 +107,14 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public StartupTimeMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
+	public StartupTimeMonitor (String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
+		monitoredTarget =resourceId;
 		monitorName = "startupTime";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -142,51 +122,27 @@ public class StartupTimeMonitor extends AbstractMonitor{
 
 		vms = new ArrayList<VmDetail>();
 
-		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-		for (KBEntity kbEntity: dcConfig) {
-			DataCollector dc = (DataCollector) kbEntity;
+		Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-			if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+		for (DCMetaData dc: dcConfig) {
 
-				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("startupTime")) {
+				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("startupTime")) {
 
-					dc.getTargetResources();
 
-					monitoredTarget = dc.getTargetResources().iterator().next().getUri();
-
-					//CollectedMetric = dc.getCollectedMetric();
-
-					Set<Parameter> parameters = dc.getParameters();
+					Map<String, String> parameters = dc.getParameters();
 					VmDetail vm = new VmDetail();
 
-					for (Parameter par: parameters) {
-						switch (par.getName()) {
-						case "connectTimeout":
-							vm.connectTimeout = Integer.valueOf(par.getValue())*1000;
-							break;
-						case "userName":
-							vm.userName = par.getValue();
-							break;	
-						case "publicIP":
-							vm.publicIP = par.getValue();
-							break;
-						case "launchTime":
-							vm.launchTime = par.getValue();
-							break;
-						case "isSpot":
-							vm.isSpot = Boolean.valueOf(par.getValue());
-							break;
-						case "keyFile":
-							vm.keyFile = par.getValue();
-							break;
-						case "password":
-							vm.password = par.getValue();
-							break;
-						}
-					}
+					vm.connectTimeout = Integer.valueOf(parameters.get("connectTimeout"))*1000;
+					vm.userName = parameters.get("userName");
+					vm.publicIP = parameters.get("publicIP");
+					vm.launchTime = parameters.get("launchTime");
+					vm.isSpot = Boolean.valueOf(parameters.get("isSpot"));
+					vm.keyFile = parameters.get("keyFile");
+					vm.password = parameters.get("password");
+					
 					break;
 				}
-			}
+			
 		}
 
 		analyseVms();
@@ -248,7 +204,7 @@ public class StartupTimeMonitor extends AbstractMonitor{
 						Date currentTime = new Date();
 						vm.startupTime = (currentTime.getTime()-date_launch.getTime())/1000;
 						try {
-							ddaConnector.sendSyncMonitoringDatum(String.valueOf(vm.startupTime), "StartupTime", monitoredTarget);
+							dcAgent.sendSyncMonitoringDatum(String.valueOf(vm.startupTime), "StartupTime", monitoredTarget);
 						} catch (Exception e) {
 							e.printStackTrace();
 						} 

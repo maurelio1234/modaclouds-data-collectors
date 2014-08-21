@@ -17,12 +17,8 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -30,12 +26,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -70,21 +64,6 @@ public class FlexiMonitor extends AbstractMonitor {
 	private int period;
 
 	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
-
-	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
@@ -94,22 +73,21 @@ public class FlexiMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
+	private DataCollectorAgent dcAgent;
+
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public FlexiMonitor(String ownURI, String mode) throws MalformedURLException, FileNotFoundException  {
+	public FlexiMonitor(String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
 		monitorName = "flexiant";
-
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		monitoredTarget = resourceId;
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -119,36 +97,23 @@ public class FlexiMonitor extends AbstractMonitor {
 		String password = null;
 		String host = null;
 
-		Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-		for (KBEntity kbEntity: dcConfig) {
-			DataCollector dc = (DataCollector) kbEntity;
-			if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+		Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
+		for (DCMetaData dc: dcConfig) {
+			
 
-					Set<Parameter> parameters = dc.getParameters();
+				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
 
-					monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+					Map<String, String> parameters = dc.getParameters();
 
-					for (Parameter par: parameters) {
-						switch (par.getName()) {
-						case "monitoredMachineAddress":
-							monitoredMachineAddress = par.getValue();
-							break;
-						case "user":
-							user = par.getValue();
-							break;
-						case "password":
-							password = par.getValue();
-							break;
-						case "host":
-							host = par.getValue();
-							break;
-						}
-					}
+					monitoredMachineAddress = parameters.get("monitoredMachineAddress");
+					user = parameters.get("user");
+					password = parameters.get("password");
+					host = parameters.get("host");
+
 					break;
 				}
-			}
+			
 		}
 
 		JSch jsch = new JSch();
@@ -166,23 +131,16 @@ public class FlexiMonitor extends AbstractMonitor {
 
 			while (!fmt.isInterrupted()) {
 				if (System.currentTimeMillis() - startTime > 60000) {
-					dcConfig = kbConnector.getAll(DataCollector.class);
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("flexi")) {
+					dcConfig = dcAgent.getDataCollectors(resourceId);
+					for (DCMetaData dc: dcConfig) {
+						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
 
-							Set<Parameter> parameters = dc.getParameters();
+							Map<String, String> parameters = dc.getParameters();
 
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "samplingTime":
-									period = Integer.valueOf(par.getValue());
-									break;
-								case "samplingProbability":
-									samplingProb = Double.valueOf(par.getValue());
-									break;
-								}
-							}
+							period = Integer.valueOf(parameters.get("samplingTime"));
+							samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+							
+							
 							break;
 						}
 					}
@@ -232,7 +190,7 @@ public class FlexiMonitor extends AbstractMonitor {
 							if (count%2 == 1) {
 								try {
 									if (isSent) {
-										ddaConnector.sendSyncMonitoringDatum(m.group(1), metricName, monitoredTarget);
+										dcAgent.sendSyncMonitoringDatum(m.group(1), metricName, monitoredTarget);
 									}
 								} catch (Exception e) {
 									// TODO Auto-generated catch block

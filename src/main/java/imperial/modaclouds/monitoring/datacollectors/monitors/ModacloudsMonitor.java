@@ -17,34 +17,20 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.restlet.Application;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.demo.ofbiz.OFBizLogFileMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
 
-import java.io.*;
-import java.net.URL;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+
+import org.restlet.Application;
+import org.xml.sax.SAXException;
 
 /**
  * Main class.
@@ -74,12 +60,12 @@ public class ModacloudsMonitor extends Application
 	/**
 	 * DDa connector.
 	 */
-	private static DDAConnector ddaConnector;
+//	private static DDAConnector ddaConnector;
 
 	/**
 	 * URI of the DC.
 	 */
-	private static String ownURI;	
+//	private static String ownURI;	
 
 	/**
 	 * mode of the DC.
@@ -89,7 +75,7 @@ public class ModacloudsMonitor extends Application
 	/**
 	 * Knowledge base connector.
 	 */
-	private static KBConnector kbConnector;
+//	private static KBConnector kbConnector;
 
 	/**
 	 * The mapp
@@ -99,7 +85,7 @@ public class ModacloudsMonitor extends Application
 	/**
 	 * Object store connector.
 	 */
-	private static ObjectStoreConnector objectStoreConnector;
+//	private static ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * Initial setup of the monitor.
@@ -130,11 +116,9 @@ public class ModacloudsMonitor extends Application
 	 * run monitoring given the collector index.
 	 * 
 	 * @param index: monitoring collector index
-	 * @throws IOException
-	 * @throws InterruptedException 
 	 * 
 	 */
-	public static void runMonitoring (String[] index) throws IOException, InterruptedException {
+	public static void runMonitoring (String[] index) {
 
 		int[] intArray = new int[index.length];
 		for(int i = 0; i < index.length; i++) {
@@ -156,55 +140,55 @@ public class ModacloudsMonitor extends Application
 			AbstractMonitor newMonitor = null;
 			switch (intArray[i]) {
 			case 1:
-				newMonitor = new JMXMonitor(ownURI, mode);
+				newMonitor = new JMXMonitor(DataCollectorAgent.getAppId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 2:
-				newMonitor = new CollectlMonitor(ownURI, mode);
+				newMonitor = new CollectlMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 3:
-				newMonitor = new SigarMonitor(ownURI, mode);
+				newMonitor = new SigarMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 4:
-				newMonitor = new OFBizLogFileMonitor(ownURI, mode);
+				newMonitor = new OFBizLogFileMonitor(DataCollectorAgent.getAppId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 5:
-				newMonitor = new LogFileMonitor(ownURI, mode);
+				newMonitor = new LogFileMonitor(DataCollectorAgent.getAppId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 6:
-				newMonitor = new MySQLMonitor(ownURI, mode);
+				newMonitor = new MySQLMonitor(DataCollectorAgent.getAppId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 7:
-				newMonitor = new CloudWatchMonitor(ownURI, mode);
+				newMonitor = new CloudWatchMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 8:
-				newMonitor = new FlexiMonitor(ownURI, mode);
+				newMonitor = new FlexiMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 9:
-				newMonitor = new EC2SpotPriceMonitor(ownURI, mode);
+				newMonitor = new EC2SpotPriceMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 10:
-				newMonitor = new StartupTimeMonitor(ownURI, mode);
+				newMonitor = new StartupTimeMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 11:
-				newMonitor = new CostMonitor(ownURI, mode);
+				newMonitor = new CostMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 12:
-				newMonitor = new AvailabilityMonitor(ownURI, mode);
+				newMonitor = new AvailabilityMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 13:
-				newMonitor = new DetailedCostMonitor(ownURI, mode);
+				newMonitor = new DetailedCostMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			}
@@ -260,81 +244,18 @@ public class ModacloudsMonitor extends Application
 	 */
 	public static void main( String[] args ) throws Exception
 	{
-		if (args.length < 2) {
-			System.out.println("Please input the uri of the instance and the mode of the DC");
+		if (args.length < 1) {
+			System.out.println("Please input the mode of the DC");
 			System.exit(-1);
 		}
 
-		ownURI = args[0];
-		mode = args[1];
+		mode = args[0];
 
 		initSetup();
+		DataCollectorAgent.initialize();
 		
 		if (mode.equals("kb")) {
-			//ddaConnector = DDAConnector.getInstance();
-			try {
-				//objectStoreConnector = ObjectStoreConnector.getInstance();
-				//MO.setKnowledgeBaseURL(objectStoreConnector.getKBUrl());
-
-				kbConnector = KBConnector.getInstance();
-				//kbConnector.setKbURL(new URL(MO.getKnowledgeBaseDataURL()));
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-			Logger.getLogger( "org" ).setLevel( Level.WARN );
-
-
-
-			List<String> oldCollectors = new ArrayList<String>(); 
-
-			long startTime = 0;
-
-			while(true) {
-
-				if (System.currentTimeMillis() - startTime > 10000) {
-
-					List<String> newCollectors = new ArrayList<String>(); 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
-
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-
-							//dc.setEnabled(true);
-							//kbConnector.add(dc);
-							if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
-								newCollectors.add(findCollector(dc.getCollectedMetric()));
-							}
-						}
-					}
-
-					List<String> toRun = new ArrayList<String>();
-					List<String> toStop = new ArrayList<String>();
-
-					for (String newCollector: newCollectors) {
-						if (!oldCollectors.contains(newCollector)) {
-							toRun.add(newCollector);
-						}
-					}
-
-					for (String oldCollector: oldCollectors) {
-						if (!newCollectors.contains(oldCollector)) {
-							toStop.add(oldCollector);
-						}
-					}
-
-					runMonitoring(toRun.toArray(new String[toRun.size()]));
-					stopMonitoring(toStop.toArray(new String[toStop.size()]));
-
-					oldCollectors = newCollectors;
-
-					startTime = System.currentTimeMillis();
-
-					Thread.sleep(10000);
-				}
-			}
+			DataCollectorAgent.getInstance().startSyncingWithKB();
 		}
 		else {
 			String[] strArray = args[2].split(",");
