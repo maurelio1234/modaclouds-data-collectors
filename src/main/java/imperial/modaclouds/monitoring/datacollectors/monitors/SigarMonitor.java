@@ -19,7 +19,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.File;
 import java.io.FileNotFoundException;

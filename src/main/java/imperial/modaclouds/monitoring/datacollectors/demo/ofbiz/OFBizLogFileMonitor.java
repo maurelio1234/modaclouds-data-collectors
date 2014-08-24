@@ -18,7 +18,7 @@ package imperial.modaclouds.monitoring.datacollectors.demo.ofbiz;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.monitors.ModacloudsMonitor;
-import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.BufferedReader;
 import java.io.File;

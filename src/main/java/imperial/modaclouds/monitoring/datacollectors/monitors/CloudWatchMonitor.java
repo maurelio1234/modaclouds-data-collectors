@@ -20,7 +20,7 @@ import freemarker.core.ParseException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
