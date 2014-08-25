@@ -258,6 +258,7 @@ public class SigarMonitor extends AbstractMonitor {
 
 	@Override
 	public void start() {
+		logger.info("Starting Sigar DC");
 		sigar = SingletonSigar.getInstance();
 		sigt = new Thread(this, "sig-mon");
 	}
