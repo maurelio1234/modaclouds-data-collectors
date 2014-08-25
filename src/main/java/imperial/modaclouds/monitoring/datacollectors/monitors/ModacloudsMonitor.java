@@ -30,6 +30,8 @@ import java.util.Map;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.restlet.Application;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xml.sax.SAXException;
 
 /**
@@ -37,6 +39,8 @@ import org.xml.sax.SAXException;
  */
 public class ModacloudsMonitor extends Application
 {	
+	private static final Logger logger = LoggerFactory.getLogger(ModacloudsMonitor.class);
+	
 	/**
 	 * Index of the monitors.
 	 */
@@ -123,7 +127,7 @@ public class ModacloudsMonitor extends Application
 		int[] intArray = new int[index.length];
 		for(int i = 0; i < index.length; i++) {
 			if (dcIndex.get(index[i]) == null) {
-				System.out.println("WARNING: Cannot recognise collector: "+index[i]);
+				logger.warn("Cannot recognise collector: {}", index[i]);
 			}
 			else {
 				intArray[i] = dcIndex.get(index[i]);
@@ -132,7 +136,7 @@ public class ModacloudsMonitor extends Application
 
 		for(int i = 0; i < index.length; i++) {
 			if (runningMonitors.contains(index[i])) {
-				System.out.println("WARNING: collector " + index[i]+ " has already started!");
+				logger.warn("Collector {} has already started!", index[i]);
 				continue;
 			}
 
@@ -224,7 +228,7 @@ public class ModacloudsMonitor extends Application
 
 		for (int i = 0; i < index.length; i++) {
 			if (!runningMonitors.contains(index[i])) {
-				System.out.println("WARNING: collector " + index[i]+ " has already stopped!");
+				logger.warn("Collector {} has already stopped!", index[i]);
 				continue;
 			}
 
@@ -245,7 +249,7 @@ public class ModacloudsMonitor extends Application
 	public static void main( String[] args ) throws Exception
 	{
 		if (args.length < 1) {
-			System.out.println("Please input the mode of the DC");
+			logger.error("Please input the mode of the DC");
 			System.exit(-1);
 		}
 
@@ -358,7 +362,7 @@ public class ModacloudsMonitor extends Application
 		collector = metricCollectorMapping.get(metricName.toLowerCase());
 
 		if (collector == null) {
-			System.out.println("Metric: "+metricName+" not found");
+			logger.error("Metric {} not found", metricName);
 			return null;
 		}
 		else {

@@ -37,6 +37,8 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -47,6 +49,8 @@ import org.xml.sax.SAXException;
  * The monitoring collector for Sigar.
  */
 public class SigarMonitor extends AbstractMonitor {
+	
+	private Logger logger = LoggerFactory.getLogger(SigarMonitor.class);
 
 	/**
 	 * Sigar instance.
@@ -234,7 +238,7 @@ public class SigarMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					System.out.println(value + " " + metricList.get(index).getMetricName() + " " + monitoredTarget);
+					logger.info("Sending datum: {} {} {}",value, metricList.get(index).getMetricName(), monitoredTarget);
 					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (Exception e) {
@@ -261,7 +265,7 @@ public class SigarMonitor extends AbstractMonitor {
 	@Override
 	public void init() {
 		sigt.start();
-		System.out.println("Sigar monitor running!");
+		logger.info("Sigar monitor running");
 	}
 
 	@Override
@@ -269,7 +273,7 @@ public class SigarMonitor extends AbstractMonitor {
 		while (!sigt.isInterrupted()) {
 			sigt.interrupt();
 		}
-		System.out.println("Sigar monitor stopped!");
+		logger.info("Sigar monitor stopped!");
 	}
 
 
