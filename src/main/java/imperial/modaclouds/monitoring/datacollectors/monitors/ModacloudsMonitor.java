@@ -263,7 +263,6 @@ public class ModacloudsMonitor extends Application
 		}
 		else {
 			String[] strArray = args[2].split(",");
-			
 			runMonitoring(strArray);
 		}
 

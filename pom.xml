@@ -59,15 +59,16 @@
 			<groupId>com.sun</groupId>
 			<artifactId>tools</artifactId>
 			<version>1.6.0</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/lib/tools.jar</systemPath>
 		</dependency>
-		<dependency>
+		<!-- <dependency>
 			<groupId>org.hyperic</groupId>
 			<artifactId>sigar</artifactId>
 			<version>1.6.4</version>
-			<scope>system</scope>
-			<systemPath>${basedir}/lib/hyperic-sigar-1.6.4/sigar-bin/lib/sigar.jar</systemPath>
+		</dependency> -->
+		<dependency>
+			<groupId>org.fusesource</groupId>
+			<artifactId>sigar</artifactId>
+			<version>1.6.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.drizzle.jdbc</groupId>
@@ -124,6 +125,10 @@
 
 	<repositories>
 		<repository>
+			<id>my-local-repo</id>
+			<url>file://${basedir}/repo</url>
+		</repository>
+		<repository>
 			<id>maven-restlet</id>
 			<name>Public online Restlet repository</name>
 			<url>http://maven.restlet.org</url>
@@ -149,7 +154,6 @@
 					<target>1.7</target>
 				</configuration>
 			</plugin>
-
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
