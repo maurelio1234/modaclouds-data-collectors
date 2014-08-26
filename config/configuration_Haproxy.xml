@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<haproxy>
+		<LogFileName>D:\Dropbox\Modaclouds-LoadBalancer\haproxy.log</LogFileName>
+		<monitorPeriod>5</monitorPeriod>
+</haproxy>

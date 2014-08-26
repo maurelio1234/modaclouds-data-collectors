@@ -120,6 +120,7 @@ public class ModacloudsMonitor extends Application
 		dcIndex.put("cost", 11);
 		dcIndex.put("availability", 12);
 		dcIndex.put("detailedCost", 13);
+		dcIndex.put("haproxy", 14);
 
 		monitors = new ArrayList<AbstractMonitor>();
 		runningMonitors = new ArrayList<String>();
@@ -207,6 +208,10 @@ public class ModacloudsMonitor extends Application
 				newMonitor = new DetailedCostMonitor(ownURI, mode);
 				monitors.add(newMonitor);
 				break;
+			case 14:
+				newMonitor = new HaproxyLogMonitor(ownURI, mode);
+				monitors.add(newMonitor);
+				break;
 			}
 			newMonitor.start();
 			newMonitor.init();
@@ -284,8 +289,6 @@ public class ModacloudsMonitor extends Application
 
 			Logger.getLogger( "org" ).setLevel( Level.WARN );
 
-
-
 			List<String> oldCollectors = new ArrayList<String>(); 
 
 			long startTime = 0;
@@ -299,6 +302,8 @@ public class ModacloudsMonitor extends Application
 
 					for (KBEntity kbEntity: dcConfig) {
 						DataCollector dc = (DataCollector) kbEntity;
+						
+						System.out.println(dc.getTargetResources().iterator().next().getUri());
 
 						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
 
@@ -336,7 +341,8 @@ public class ModacloudsMonitor extends Application
 				}
 			}
 		}
-		else {
+		
+		if (mode.equals("file")) {
 			String[] strArray = args[2].split(",");
 			
 			runMonitoring(strArray);
@@ -382,7 +388,7 @@ public class ModacloudsMonitor extends Application
 		if (metricCollectorMapping == null) {
 			metricCollectorMapping = new HashMap<String,String>();
 
-			metricCollectorMapping.put("cpuutilization", "sigar");
+			metricCollectorMapping.put("cpuutilization", "haproxy");
 			metricCollectorMapping.put("cpustolen", "sigar");
 			metricCollectorMapping.put("memused", "sigar");
 			metricCollectorMapping.put("threads_running", "mysql");
@@ -431,6 +437,7 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("detailedcost", "detailedCost");
 			metricCollectorMapping.put("availability", "availability");
 			metricCollectorMapping.put("flexi", "flexi");
+			metricCollectorMapping.put("haproxylog", "haproxy");
 		}
 
 		String collector;
