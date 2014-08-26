@@ -24,7 +24,7 @@ public class Config {
 	}
 	
 	private Config() throws ConfigurationException{
-		validator = new UrlValidator();
+		validator = new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS);
 		ddaIP = getMandatoryEnvVar(Env.MODACLOUDS_MONITORING_DDA_ENDPOINT_IP);
 		ddaPort = getMandatoryEnvVar(Env.MODACLOUDS_MONITORING_DDA_ENDPOINT_PORT);
 		kbIP = getMandatoryEnvVar(Env.MODACLOUDS_KNOWLEDGEBASE_ENDPOINT_IP);
