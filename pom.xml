@@ -119,7 +119,7 @@
 		<dependency>
 			<groupId>it.polimi.modaclouds.monitoring</groupId>
 			<artifactId>data-collector-factory</artifactId>
-			<version>0.2-SNAPSHOT</version>
+			<version>0.2</version>
 		</dependency>
 	</dependencies>
 
