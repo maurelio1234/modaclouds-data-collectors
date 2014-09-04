@@ -298,15 +298,13 @@ public class ModacloudsMonitor extends Application
 				if (System.currentTimeMillis() - startTime > 10000) {
 
 					List<String> newCollectors = new ArrayList<String>(); 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-
+					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);					
+					
 					for (KBEntity kbEntity: dcConfig) {
 						DataCollector dc = (DataCollector) kbEntity;
-						
-						System.out.println(dc.getTargetResources().iterator().next().getUri());
-
+												
 						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-
+							
 							//dc.setEnabled(true);
 							//kbConnector.add(dc);
 							if (!newCollectors.contains(findCollector(dc.getCollectedMetric()))) {
@@ -388,8 +386,8 @@ public class ModacloudsMonitor extends Application
 		if (metricCollectorMapping == null) {
 			metricCollectorMapping = new HashMap<String,String>();
 
-			metricCollectorMapping.put("cpuutilization", "haproxy");
-			metricCollectorMapping.put("cpustolen", "sigar");
+			metricCollectorMapping.put("cpuutilization", "sigar");
+			metricCollectorMapping.put("cpustolen", "haproxy");
 			metricCollectorMapping.put("memused", "sigar");
 			metricCollectorMapping.put("threads_running", "mysql");
 			metricCollectorMapping.put("threads_cached", "mysql");

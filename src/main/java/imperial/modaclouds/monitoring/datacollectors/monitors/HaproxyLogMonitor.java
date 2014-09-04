@@ -181,9 +181,12 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 					
 					while ( (line = file.readLine()) != null) {
 						if (line.contains("JSESSIONID")) {
+							if (line.contains(".css")) {
+								continue;
+							}
 							System.out.println(line);
 							//ddaConnector.sendSyncMonitoringDatum(line, "HaproxyLog", monitoredTarget);
-							ddaConnector.sendAsyncMonitoringDatum(line, "CPUUtilization", monitoredTarget);
+							ddaConnector.sendAsyncMonitoringDatum(line, "CPUStolen", monitoredTarget);
 						}
 					}
 					
