@@ -16,28 +16,24 @@
  */
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
+import freemarker.core.ParseException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
@@ -45,8 +41,6 @@ import com.amazonaws.services.cloudwatch.model.Datapoint;
 import com.amazonaws.services.cloudwatch.model.Dimension;
 import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsRequest;
 import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsResult;
-
-import freemarker.core.ParseException;
 
 /**
  * The monitoring collector for CloudWatch.
@@ -73,20 +67,6 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
 
 	/**
 	 * The unique monitored target.
@@ -96,7 +76,9 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	/**
 	 * The metric list.
 	 */
-	private List<Metric> metricList; 
+	private List<Metric> metricList;
+
+	private DataCollectorAgent dcAgent; 
 
 
 
@@ -131,20 +113,17 @@ public class CloudWatchMonitor extends AbstractMonitor {
 
 	/**
 	 * Constructor of the class.
-	 * @throws MalformedURLException 
-	 * @throws FileNotFoundException 
 	 */
-	public CloudWatchMonitor(String ownURI, String mode) throws MalformedURLException, FileNotFoundException  {
+	public CloudWatchMonitor(String resourceId, String mode)   {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
+		
+		monitoredTarget = resourceId;
 		
 		monitorName = "cloudwatch";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -167,49 +146,29 @@ public class CloudWatchMonitor extends AbstractMonitor {
 				measureNames = new ArrayList<String>();
 
 				metricList = new ArrayList<Metric>();
+				
+				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+				for (DCMetaData dc: dcConfig) {
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("cloudwatch")) {
 
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("cloudwatch")) {
+						Metric temp = new Metric();
 
-							Metric temp = new Metric();
+						temp.setMetricName(dc.getMonitoredMetric());
 
-							temp.setMetricName(dc.getCollectedMetric());
+						measureNames.add(dc.getMonitoredMetric().replace("CloudWatch", ""));
 
-							measureNames.add(dc.getCollectedMetric().replace("CloudWatch", ""));
+						Map<String, String> parameters = dc.getParameters();
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
-
-							Set<Parameter> parameters = dc.getParameters();
-
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "accessKey":
-									accessKeyId = par.getValue();
-									break;
-								case "instanceID":
-									instanceID = par.getValue();
-									break;
-								case "secretKey":
-									secretKey = par.getValue();
-									break;
-								case "samplingTime":
-									period = Integer.valueOf(par.getValue())*1000;
-									break;
-								case "samplingProbability":
-									temp.setSamplingProb(Double.valueOf(par.getValue()));
-									break;
-								case "endpoint":
-									endpoint = par.getValue();
-									break;
-								}
-							}
-							metricList.add(temp);
-						}
+						accessKeyId = parameters.get("accessKey");
+						instanceID = parameters.get("instanceID");
+						secretKey = parameters.get("secretKey");
+						period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+						temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
+						endpoint = parameters.get("endpoint");
+						
+						metricList.add(temp);
 					}
 				}
 
@@ -232,7 +191,7 @@ public class CloudWatchMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(measureName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									ddaConnector.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredTarget);
+									dcAgent.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredTarget);
 								}
 							}
 						}

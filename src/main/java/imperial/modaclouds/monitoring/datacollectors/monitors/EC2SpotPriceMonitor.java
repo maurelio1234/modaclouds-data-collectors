@@ -17,22 +17,16 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
+import java.util.Map;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -70,29 +64,20 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	 */
 	private List<SpotInstance> spotInstanceVec;
 
-	/**
-	 * Monitoring period.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
+	
 
 	/**
 	 * The sampling probability
 	 */
 	private double samplingProb;
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
+
 
 	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
+
+	private DataCollectorAgent dcAgent;
 
 
 	/**
@@ -100,16 +85,15 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public EC2SpotPriceMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
+	public EC2SpotPriceMonitor (String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
 		monitorName = "ec2-spotPrice";
+		
+		monitoredTarget = resourceId;
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -126,60 +110,39 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 			if (System.currentTimeMillis() - startTime > 10000) {
 				spotInstanceVec = new ArrayList<SpotInstance>();
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+				for (DCMetaData dc: dcConfig) {
 
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("ec2-spotPrice")) {
+					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("ec2-spotPrice")) {
 
-							Set<Parameter> parameters = dc.getParameters();
+						Map<String, String> parameters = dc.getParameters();
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+						String endpoint = null;
+						String productDes = null;
+						String instanceType = null;
 
-							String endpoint = null;
-							String productDes = null;
-							String instanceType = null;
+						accessKeyId = parameters.get("accessKey");
+						secretKey = parameters.get("secretKey");
+						endpoint = parameters.get("endPoint");
+						productDes = parameters.get("productDescription");
+						instanceType = parameters.get("productDescription");
+						period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+						samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+						
 
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "accessKey":
-									accessKeyId = par.getValue();
-									break;
-								case "secretKey":
-									secretKey = par.getValue();
-									break;
-								case "endPoint":
-									endpoint = par.getValue();
-									break;
-								case "productDescription":
-									productDes = par.getValue();
-									break;
-								case "instanceType":
-									instanceType = par.getValue();
-									break;
-								case "samplingTime":
-									period = Integer.valueOf(par.getValue())*1000;
-									break;
-								case "samplingProbability":
-									samplingProb = Double.valueOf(par.getValue());
-									break;
-								}
-							}
+						SpotInstance spotInstance = new SpotInstance();
+						spotInstance.productDes = new ArrayList<String>();
+						spotInstance.instanceType = new ArrayList<String>();
 
-							SpotInstance spotInstance = new SpotInstance();
-							spotInstance.productDes = new ArrayList<String>();
-							spotInstance.instanceType = new ArrayList<String>();
+						spotInstance.endpoint = endpoint;
+						spotInstance.productDes.add(productDes);
+						spotInstance.instanceType.add(instanceType);
 
-							spotInstance.endpoint = endpoint;
-							spotInstance.productDes.add(productDes);
-							spotInstance.instanceType.add(instanceType);
-
-							spotInstanceVec.add(spotInstance);
-							break;
-						}
+						spotInstanceVec.add(spotInstance);
+						break;
 					}
+					
 				}
 				startTime = System.currentTimeMillis();
 			}
@@ -218,7 +181,7 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 							temp = temp.replace("SpotPrice: ", "");
 							System.out.println(temp);
 							try {
-								ddaConnector.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredTarget);
+								dcAgent.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredTarget);
 							} catch (Exception e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();

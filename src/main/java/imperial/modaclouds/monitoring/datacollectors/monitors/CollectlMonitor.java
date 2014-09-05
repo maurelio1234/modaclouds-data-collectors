@@ -17,27 +17,21 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -48,9 +42,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 /**
  * The monitoring collector for collectl.
@@ -118,44 +109,29 @@ public class CollectlMonitor extends AbstractMonitor {
 	private String monitoredTarget;
 
 	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
-
-	/**
 	 * The sampling probability.
 	 */
 	private double samplingProb;
+
+	private DataCollectorAgent dcAgent;
 
 
 
 	/**
 	 * Constructor of the class.
-	 *
-	 * @throws MalformedURLException 
-	 * @throws FileNotFoundException 
 	 */
-	public CollectlMonitor(String ownURI, String mode) throws MalformedURLException, FileNotFoundException 
+	public CollectlMonitor(String resourceId, String mode)
 	{
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
+		
+		monitoredTarget = resourceId;
 
 		monitorName = "collectl";
 		serverIP = "localhost";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();		
+		dcAgent = DataCollectorAgent.getInstance();
 
 		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
@@ -176,29 +152,18 @@ public class CollectlMonitor extends AbstractMonitor {
 					if (System.currentTimeMillis() - startTime > 10000) {
 						ArrayList<String> requiredMetric = new ArrayList<String>();
 
-						Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-						for (KBEntity kbEntity: dcConfig) {
-							DataCollector dc = (DataCollector) kbEntity;
+						Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+						for (DCMetaData dc: dcConfig) {
 
-							if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
 
-								if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+								requiredMetric.add(dc.getMonitoredMetric());
 
-									requiredMetric.add(dc.getCollectedMetric());
-
-									Set<Parameter> parameters = dc.getParameters();
-
-									monitoredTarget = dc.getTargetResources().iterator().next().getUri();
-
-									for (Parameter par: parameters) {
-										switch (par.getName()) {
-										case "samplingProbability":
-											samplingProb = Double.valueOf(par.getValue());
-											break;
-										}
-									}
-								}
+								Map<String, String> parameters = dc.getParameters();
+								
+								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
 							}
+					
 						}
 
 						metricPair = parseMetrics(requiredMetric);
@@ -250,14 +215,14 @@ public class CollectlMonitor extends AbstractMonitor {
 									if (isSent) {
 										if (key.toLowerCase().equals("cpuutilizationcollectl")) {
 											try {
-												ddaConnector.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+												dcAgent.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
 											} catch (Exception e) {
 												e.printStackTrace();
 											}
 										}
 										else {
 											try {
-												ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+												dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 											} catch (Exception e) {
 												e.printStackTrace();
 											}
@@ -277,7 +242,7 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -296,7 +261,7 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -315,7 +280,7 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											ddaConnector.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -447,28 +412,18 @@ public class CollectlMonitor extends AbstractMonitor {
 
 		if (mode.equals("kb")) {
 
-			Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-			for (KBEntity kbEntity: dcConfig) {
-				DataCollector dc = (DataCollector) kbEntity;
-				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("collectl")) {
+			Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+			for (DCMetaData dc: dcConfig) {
+				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
 
-					requiredMetric.add(dc.getCollectedMetric());
+					requiredMetric.add(dc.getMonitoredMetric());
 
-					Set<Parameter> parameters = dc.getParameters();
+					Map<String, String> parameters = dc.getParameters();
 
-					for (Parameter par: parameters) {
-						switch (par.getName()) {
-						case "serverIP":
-							serverIP = par.getValue();
-							break;
-						case "samplingTime":
-							periodList.add(Integer.valueOf(par.getValue())*1000);
-							break;
-						case "samplingProbability":
-							samplingProb = Double.valueOf(par.getValue());
-							break;
-						}
-					}
+					serverIP = parameters.get("serverIP");
+					periodList.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+					samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+					
 				}
 			}
 

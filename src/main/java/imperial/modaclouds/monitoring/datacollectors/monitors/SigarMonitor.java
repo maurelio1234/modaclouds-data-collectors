@@ -17,22 +17,19 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -40,19 +37,20 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
-
 /**
  * The monitoring collector for Sigar.
  */
 public class SigarMonitor extends AbstractMonitor {
+	
+	private Logger logger = LoggerFactory.getLogger(SigarMonitor.class);
 
 	/**
 	 * Sigar instance.
@@ -64,21 +62,7 @@ public class SigarMonitor extends AbstractMonitor {
 	 */
 	private Thread sigt;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
-
+	
 	/**
 	 * The unique monitored target.
 	 */
@@ -87,7 +71,9 @@ public class SigarMonitor extends AbstractMonitor {
 	/**
 	 * The metric list.
 	 */
-	private List<Metric> metricList; 
+	private List<Metric> metricList;
+
+	private DataCollectorAgent dcAgent; 
 
 
 	/**
@@ -97,17 +83,13 @@ public class SigarMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public SigarMonitor( String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
-		//this.monitoredResourceID = UUID.randomUUID().toString();
-		//this.monitoredResourceID = "FrontendVM";
-		super(ownURI, mode);
+	public SigarMonitor( String resourceId, String mode)  {
+		super(resourceId, mode);
 
+		monitoredTarget = resourceId;
 		monitorName = "sigar";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -130,39 +112,26 @@ public class SigarMonitor extends AbstractMonitor {
 
 					metricList = new ArrayList<Metric>();
 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+					Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
+					for (DCMetaData dc: dcConfig) {
 
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-
-							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("sigar")) {
+							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("sigar")) {
 								Metric temp = new Metric();
 
-								temp.setMetricName(dc.getCollectedMetric());
+								temp.setMetricName(dc.getMonitoredMetric());
 
-								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
 
-								System.out.println("Received target: " + monitoredTarget);
+								Map<String, String> parameters = dc.getParameters();
 
-								Set<Parameter> parameters = dc.getParameters();
-
-								for (Parameter par: parameters) {
-									switch (par.getName()) {
-									case "samplingTime":
-										period.add(Integer.valueOf(par.getValue())*1000);
-										nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
-										break;
-									case "samplingProbability":
-										temp.setSamplingProb(Double.valueOf(par.getValue()));
-										break;
-									}
-								}
+								period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+								nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+								temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
+								
 
 								metricList.add(temp);
 							}
-						}
+						
 					}
 
 					startTime = System.currentTimeMillis();
@@ -267,8 +236,8 @@ public class SigarMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					System.out.println(value + " " + metricList.get(index).getMetricName() + " " + monitoredTarget);
-					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
+					logger.info("Sending datum: {} {} {}",value, metricList.get(index).getMetricName(), monitoredTarget);
+					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -287,6 +256,7 @@ public class SigarMonitor extends AbstractMonitor {
 
 	@Override
 	public void start() {
+		logger.info("Starting Sigar DC");
 		sigar = SingletonSigar.getInstance();
 		sigt = new Thread(this, "sig-mon");
 	}
@@ -294,7 +264,7 @@ public class SigarMonitor extends AbstractMonitor {
 	@Override
 	public void init() {
 		sigt.start();
-		System.out.println("Sigar monitor running!");
+		logger.info("Sigar monitor running");
 	}
 
 	@Override
@@ -302,7 +272,7 @@ public class SigarMonitor extends AbstractMonitor {
 		while (!sigt.isInterrupted()) {
 			sigt.interrupt();
 		}
-		System.out.println("Sigar monitor stopped!");
+		logger.info("Sigar monitor stopped!");
 	}
 
 

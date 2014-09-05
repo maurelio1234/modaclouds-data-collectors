@@ -17,13 +17,9 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -35,9 +31,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -48,9 +45,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 /**
  * The monitoring collector for MySQL database.
@@ -92,15 +86,7 @@ public class MySQLMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
+	
 
 	/**
 	 * Object store connector.
@@ -115,24 +101,24 @@ public class MySQLMonitor extends AbstractMonitor {
 	/**
 	 * The metric list.
 	 */
-	private List<Metric> metricList; 
+	private List<Metric> metricList;
+
+	private DataCollectorAgent dcAgent; 
 
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public MySQLMonitor(String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
+	public MySQLMonitor(String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+	
+		super(resourceId, mode);
+		monitoredTarget = resourceId;
 
 		monitorName = "mysql";
-
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 
@@ -151,36 +137,26 @@ public class MySQLMonitor extends AbstractMonitor {
 
 					List<Integer> periodList = new ArrayList<Integer>();
 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
+					Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					for (DCMetaData dc: dcConfig) {
 
-							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
+						
+
+							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("mysql")) {
 
 								Metric temp = new Metric();
 
-								temp.setMetricName(dc.getCollectedMetric());
+								temp.setMetricName(dc.getMonitoredMetric());
 
-								Set<Parameter> parameters = dc.getParameters();
+								Map<String, String> parameters = dc.getParameters();
 
-								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
-
-								for (Parameter par: parameters) {
-									switch (par.getName()) {
-									case "samplingTime":
-										periodList.add(Integer.valueOf(par.getValue())*1000);
-										break;
-									case "samplingProbability":
-										temp.setSamplingProb(Double.valueOf(par.getValue()));
-										break;
-									}
-								}
+								periodList.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+								temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
 
 								metricList.add(temp);
 							}
-						}
+						
 					}
 
 					period = Collections.min(periodList);
@@ -220,7 +196,7 @@ public class MySQLMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(variableName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									ddaConnector.sendSyncMonitoringDatum(value, variableName, monitoredTarget);
+									dcAgent.sendSyncMonitoringDatum(value, variableName, monitoredTarget);
 								}
 							}
 						}
@@ -256,26 +232,17 @@ public class MySQLMonitor extends AbstractMonitor {
 		metricList = new ArrayList<Metric>();
 		if (mode.equals("kb")) {
 
-			Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-			for (KBEntity kbEntity: dcConfig) {
-				DataCollector dc = (DataCollector) kbEntity;
-				if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("mysql")) {
+			Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-					Set<Parameter> parameters = dc.getParameters();
+			for (DCMetaData dc: dcConfig) {
+				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("mysql")) {
 
-					for (Parameter par: parameters) {
-						switch (par.getName()) {
-						case "databaseAddress":
-							JDBC_URL = par.getValue();
-							break;
-						case "databaseUser":
-							JDBC_NAME = par.getValue();
-							break;
-						case "databasePassword":
-							JDBC_PASSWORD = par.getValue();
-							break;
-						}
-					}
+					Map<String, String> parameters = dc.getParameters();
+
+					JDBC_URL = parameters.get("databaseAddress");
+					JDBC_NAME = parameters.get("databaseUser");
+					JDBC_PASSWORD = parameters.get("databasePassword");
+				
 					break;
 				}
 			}

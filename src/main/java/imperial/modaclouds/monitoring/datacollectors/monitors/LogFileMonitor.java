@@ -17,22 +17,16 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -45,9 +39,6 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 
 /**
@@ -82,20 +73,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
+	
 
 	/**
 	 * The unique monitored target.
@@ -112,21 +90,21 @@ public class LogFileMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
+	private DataCollectorAgent dcAgent;
+
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public LogFileMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
+	public LogFileMonitor (String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
+		monitoredTarget = resourceId;
 		monitorName = "logFile";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -140,37 +118,22 @@ public class LogFileMonitor extends AbstractMonitor {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
 
-					Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-					for (KBEntity kbEntity: dcConfig) {
-						DataCollector dc = (DataCollector) kbEntity;
+					Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-						if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
+					for (DCMetaData dc: dcConfig) {
 
-							if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("logfile")) {
 
-								Set<Parameter> parameters = dc.getParameters();
+							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("logfile")) {
 
-								monitoredTarget = dc.getTargetResources().iterator().next().getUri();
-
-								for (Parameter par: parameters) {
-									switch (par.getName()) {
-									case "fileName":
-										fileName = par.getValue();
-										break;
-									case "pattern":
-										pattern = par.getValue();
-										break;
-									case "samplingTime":
-										period = Integer.valueOf(par.getValue())*1000;
-										break;
-									case "samplingProbability":
-										samplingProb = Double.valueOf(par.getValue());
-										break;
-									}
-								}
+								Map<String, String> parameters = dc.getParameters();
+								
+								fileName = parameters.get("fileName");
+								pattern = parameters.get("pattern");
+								period = Integer.valueOf(parameters.get("samplingTime"));
+								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
 								break;
 							}
-						}
+						
 					}
 					startTime = System.currentTimeMillis();
 				}
@@ -236,7 +199,7 @@ public class LogFileMonitor extends AbstractMonitor {
 						//System.out.println(temp);
 						try {
 							if (Math.random() < samplingProb) {
-								ddaConnector.sendSyncMonitoringDatum(temp, CollectedMetric, monitoredTarget);
+								dcAgent.sendSyncMonitoringDatum(temp, CollectedMetric, monitoredTarget);
 							}
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 						} catch (NumberFormatException e) {

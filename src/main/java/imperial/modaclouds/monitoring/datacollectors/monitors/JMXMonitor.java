@@ -17,14 +17,9 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.monitoring.objectstoreapi.ObjectStoreConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -37,18 +32,16 @@ import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
@@ -134,20 +127,7 @@ public class JMXMonitor extends AbstractMonitor {
 	 */
 	private Thread jmxt;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	private ObjectStoreConnector objectStoreConnector;
+	
 
 	/**
 	 * The unique monitored target.
@@ -157,7 +137,9 @@ public class JMXMonitor extends AbstractMonitor {
 	/**
 	 * The metric list.
 	 */
-	private List<Metric> metricList; 
+	private List<Metric> metricList;
+
+	private DataCollectorAgent dcAgent; 
 
 
 	/**
@@ -168,16 +150,15 @@ public class JMXMonitor extends AbstractMonitor {
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public JMXMonitor( String ownURI, String mode ) throws MalformedURLException, FileNotFoundException {
+	public JMXMonitor( String resourceId, String mode )  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-		super(ownURI, mode);
+		super(resourceId, mode);
+		
+		monitoredTarget = resourceId;
 		monitorName = "jmx";
 
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		dcAgent = DataCollectorAgent.getInstance();
 
 		try {
 			connectToOFBiz();
@@ -305,37 +286,24 @@ public class JMXMonitor extends AbstractMonitor {
 
 				metricList = new ArrayList<Metric>();
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
+				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+				for (DCMetaData dc: dcConfig) {
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("jmx")) {
+						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("jmx")) {
 							Metric temp = new Metric();
 
-							temp.setMetricName(dc.getCollectedMetric());
+							temp.setMetricName(dc.getMonitoredMetric());
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+							Map<String,String> parameters = dc.getParameters();
 
-							Set<Parameter> parameters = dc.getParameters();
-
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "samplingTime":
-									period.add(Integer.valueOf(par.getValue())*1000);
-									nextPauseTime.add(Integer.valueOf(par.getValue())*1000);
-									break;
-								case "samplingProbability":
-									temp.setSamplingProb(Double.valueOf(par.getValue()));
-									break;
-								}
-							}
+							period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+							nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+							temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
 
 							metricList.add(temp);
 						}
-					}
+					
 				}
 
 				startTime = System.currentTimeMillis();
@@ -374,7 +342,7 @@ public class JMXMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
+					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();

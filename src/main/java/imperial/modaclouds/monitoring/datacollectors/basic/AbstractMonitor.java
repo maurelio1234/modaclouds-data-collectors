@@ -23,8 +23,8 @@ package imperial.modaclouds.monitoring.datacollectors.basic;
  */
 public abstract class AbstractMonitor implements Runnable
 {	
-	public AbstractMonitor(String ownURI, String mode) {
-		this.ownURI = ownURI;
+	public AbstractMonitor(String resourceId, String mode) {
+		this.resourceId = resourceId;
 		this.mode = mode;
 	}
 	
@@ -50,7 +50,7 @@ public abstract class AbstractMonitor implements Runnable
 	
 	protected String mode;
 	
-	protected String ownURI;
+	protected String resourceId;
 
 	/**
 	 * Return the name of the monitor.

@@ -17,12 +17,8 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import it.polimi.modaclouds.monitoring.ddaapi.DDAConnector;
-import it.polimi.modaclouds.monitoring.ddaapi.ValidationErrorException;
-import it.polimi.modaclouds.monitoring.kb.api.KBConnector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.DataCollector;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.KBEntity;
-import it.polimi.modaclouds.qos_models.monitoring_ontology.Parameter;
+import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -32,19 +28,16 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
-
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -89,25 +82,13 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	 */
 	private Map<String,Double> cost_spot;
 
-	/**
-	 * DDa connector.
-	 */
-	private DDAConnector ddaConnector;
-
-	/**
-	 * Knowledge base connector.
-	 */
-	private KBConnector kbConnector;
-
-	/**
-	 * Object store connector.
-	 */
-	//private ObjectStoreConnector objectStoreConnector;
-
+	
 	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
+
+	private DataCollectorAgent dcAgent;
 
 
 	/**
@@ -115,16 +96,14 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	 * @throws MalformedURLException 
 	 * @throws FileNotFoundException 
 	 */
-	public DetailedCostMonitor (String ownURI, String mode) throws MalformedURLException, FileNotFoundException {
+	public DetailedCostMonitor (String ownURI, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredResourceID = monitoredResourceID;
 		super(ownURI, mode);
 		monitorName = "detailedCost";
-
-		ddaConnector = DDAConnector.getInstance();
-		kbConnector = KBConnector.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
+		monitoredTarget = resourceId;
+		
+		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -150,39 +129,24 @@ public class DetailedCostMonitor extends AbstractMonitor{
 
 				cost_spot = new HashMap<String,Double>();
 
-				Set<KBEntity> dcConfig = kbConnector.getAll(DataCollector.class);
-				for (KBEntity kbEntity: dcConfig) {
-					DataCollector dc = (DataCollector) kbEntity;
+				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
 
-					if (dc.getTargetResources().iterator().next().getUri().equals(ownURI)) {
-						if (ModacloudsMonitor.findCollector(dc.getCollectedMetric()).equals("detailedCost")) {
+				for (DCMetaData dc: dcConfig) {
 
-							Set<Parameter> parameters = dc.getParameters();
+					
+						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("detailedCost")) {
 
-							monitoredTarget = dc.getTargetResources().iterator().next().getUri();
+							Map<String, String> parameters = dc.getParameters();
 
-							for (Parameter par: parameters) {
-								switch (par.getName()) {
-								case "accessKey":
-									accessKeyId = par.getValue();
-									break;
-								case "secretKey":
-									secretKey = par.getValue();
-									break;
-								case "bucketName":
-									bucketName = par.getValue();
-									break;
-								case "filePath":
-									filePath = par.getValue();
-									break;
-								case "samplingTime":
-									period = Integer.valueOf(par.getValue())*1000;
-									break;
-								}
-							}
+							accessKeyId = parameters.get("accessKey");
+							secretKey = parameters.get("secretKey");
+							bucketName = parameters.get("bucketName");
+							filePath = parameters.get("filePath");
+							period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+							
 							break;
 						}
-					}
+					
 				}
 
 				startTime = System.currentTimeMillis();
@@ -301,7 +265,7 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				Double value = entry.getValue();
 
 				//System.out.println("Non spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
+				dcAgent.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
 			}
 
 			for (Map.Entry<String, Double> entry : cost_spot.entrySet()) {
@@ -309,7 +273,7 @@ public class DetailedCostMonitor extends AbstractMonitor{
 				Double value = entry.getValue();
 
 				//System.out.println("Spot Instance id: "+key+"\tCost: "+value);
-				ddaConnector.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
+				dcAgent.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
