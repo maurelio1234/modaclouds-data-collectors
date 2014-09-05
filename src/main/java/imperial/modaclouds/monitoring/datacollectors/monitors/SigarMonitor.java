@@ -84,8 +84,6 @@ public class SigarMonitor extends AbstractMonitor {
 	 * @throws FileNotFoundException 
 	 */
 	public SigarMonitor( String resourceId, String mode)  {
-		//this.monitoredResourceID = UUID.randomUUID().toString();
-		//this.monitoredResourceID = "FrontendVM";
 		super(resourceId, mode);
 
 		monitoredTarget = resourceId;

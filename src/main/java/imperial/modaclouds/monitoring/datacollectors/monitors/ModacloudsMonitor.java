@@ -110,6 +110,7 @@ public class ModacloudsMonitor extends Application
 		dcIndex.put("cost", 11);
 		dcIndex.put("availability", 12);
 		dcIndex.put("detailedCost", 13);
+		dcIndex.put("haproxy", 14);
 
 		monitors = new ArrayList<AbstractMonitor>();
 		runningMonitors = new ArrayList<String>();
@@ -195,6 +196,10 @@ public class ModacloudsMonitor extends Application
 				newMonitor = new DetailedCostMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
+			case 14:
+				newMonitor = new HaproxyLogMonitor(DataCollectorAgent.getAppId(), mode);
+				monitors.add(newMonitor);
+				break;
 			}
 			newMonitor.start();
 			newMonitor.init();
@@ -261,44 +266,11 @@ public class ModacloudsMonitor extends Application
 		if (mode.equals("kb")) {
 			DataCollectorAgent.getInstance().startSyncingWithKB();
 		}
-		else {
+		
+		if (mode.equals("file")) {
 			String[] strArray = args[2].split(",");
 			runMonitoring(strArray);
 		}
-
-		//		if (args.length != 0) {
-		//			String[] strArray = args[0].split(",");
-		//			
-		//			runMonitoring(runCollector.toArray(new String[runCollector.size()]));
-		//		}
-
-		//		Scanner scanIn = new Scanner(System.in);
-		//		String line;
-		//		while (true) {
-		//			if (scanIn.hasNextLine()) {
-		//				if ((line = scanIn.nextLine()) != null) {
-		//					String[] command = line.split("[,\\s]+");
-		//					if (command[0].equals("start")) {
-		//						String[] startIndex = new String[command.length-1];
-		//						for(int i = 1; i < command.length; i++) {
-		//						    startIndex[i-1] = command[i];
-		//						}
-		//						runMonitoring(startIndex);
-		//					}
-		//					else if (command[0].equals("stop")) {
-		//						String[] threadName = new String[command.length-1];
-		//						for(int i = 1; i < command.length; i++) {
-		//							threadName[i-1] = command[i];
-		//						}
-		//						stopMonitoring(threadName);
-		//					}
-		//					else if (command[0].equals("close")) {
-		//						scanIn.close();
-		//						System.exit( 0 );
-		//					}
-		//				}
-		//			}
-		//		}
 
 	}
 
@@ -307,7 +279,7 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping = new HashMap<String,String>();
 
 			metricCollectorMapping.put("cpuutilization", "sigar");
-			metricCollectorMapping.put("cpustolen", "sigar");
+			metricCollectorMapping.put("cpustolen", "haproxy");
 			metricCollectorMapping.put("memused", "sigar");
 			metricCollectorMapping.put("threads_running", "mysql");
 			metricCollectorMapping.put("threads_cached", "mysql");
@@ -355,6 +327,7 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("detailedcost", "detailedCost");
 			metricCollectorMapping.put("availability", "availability");
 			metricCollectorMapping.put("flexi", "flexi");
+			metricCollectorMapping.put("haproxylog", "haproxy");
 		}
 
 		String collector;
