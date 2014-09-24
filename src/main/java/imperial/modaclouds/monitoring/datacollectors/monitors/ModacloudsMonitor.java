@@ -108,9 +108,10 @@ public class ModacloudsMonitor extends Application
 		dcIndex.put("ec2-spotPrice", 9);
 		dcIndex.put("startupTime", 10);
 		dcIndex.put("cost", 11);
-		dcIndex.put("availability", 12);
+		dcIndex.put("vmavailability", 12);
 		dcIndex.put("detailedCost", 13);
 		dcIndex.put("haproxy", 14);
+		dcIndex.put("appavailability", 12);
 
 		monitors = new ArrayList<AbstractMonitor>();
 		runningMonitors = new ArrayList<String>();
@@ -189,7 +190,7 @@ public class ModacloudsMonitor extends Application
 				monitors.add(newMonitor);
 				break;
 			case 12:
-				newMonitor = new AvailabilityMonitor(DataCollectorAgent.getVmId(), mode);
+				newMonitor = new VMAvailabilityMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 13:
@@ -198,6 +199,10 @@ public class ModacloudsMonitor extends Application
 				break;
 			case 14:
 				newMonitor = new HaproxyLogMonitor(DataCollectorAgent.getAppId(), mode);
+				monitors.add(newMonitor);
+				break;
+			case 15:
+				newMonitor = new AppAvailabilityMonitor(DataCollectorAgent.getAppId(), mode);
 				monitors.add(newMonitor);
 				break;
 			}
@@ -325,7 +330,8 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("startuptime", "startupTime");
 			metricCollectorMapping.put("logfile", "logFile");
 			metricCollectorMapping.put("detailedcost", "detailedCost");
-			metricCollectorMapping.put("availability", "availability");
+			metricCollectorMapping.put("vmavailability", "vmavailability");
+			metricCollectorMapping.put("appavailability", "appavailability");
 			metricCollectorMapping.put("flexi", "flexi");
 			metricCollectorMapping.put("haproxylog", "haproxy");
 		}

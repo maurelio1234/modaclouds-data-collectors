@@ -90,7 +90,6 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 							break;
 						}
 					}
-					startTime = System.currentTimeMillis();
 				}
 			} else {
 				String folder = null;
@@ -137,6 +136,7 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 					e.printStackTrace();
 				}
 			}
+			startTime = System.currentTimeMillis();
 
 			RandomAccessFile file = null;
 			Long t0 = (long) 0;
