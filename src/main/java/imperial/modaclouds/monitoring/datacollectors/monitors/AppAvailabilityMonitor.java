@@ -34,6 +34,10 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 
 	private String path;
 
+	private int retryPeriod;
+
+	private int retryTimes;
+
 
 	public AppAvailabilityMonitor(String resourceId, String mode) {
 		super(resourceId, mode);
@@ -63,6 +67,8 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 
 							samplingTime = Integer.valueOf(parameters.get("samplingTime"));
 							port = Integer.valueOf(parameters.get("port"));
+							retryPeriod = Integer.valueOf(parameters.get("retryPeriod"));
+							retryTimes = Integer.valueOf(parameters.get("retryTimes"));
 							path = parameters.get("path");
 
 							break;
@@ -77,24 +83,40 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 			HttpURLConnection connection;
 			try {
 				String url = "http://localhost:"+port+path;
+				int count = 0;
+				
+				long t0 = System.currentTimeMillis();
 
-				connection = (HttpURLConnection) new URL(url).openConnection();
+				while (true) {
+					
+					connection = (HttpURLConnection) new URL(url).openConnection();
+					connection.setConnectTimeout(retryPeriod);
+					connection.setRequestMethod("HEAD");
+					int responseCode = connection.getResponseCode();
 
-				connection.setRequestMethod("HEAD");
-				int responseCode = connection.getResponseCode();
-
-				try {
-					if (responseCode == 200) {
-						dcAgent.sendSyncMonitoringDatum("true", "AppAvailable",monitoredTarget);
-					} 
-					else {
-						dcAgent.sendSyncMonitoringDatum("false", "AppAvailable",monitoredTarget);
+					try {
+						if (responseCode == 200) {
+							dcAgent.sendSyncMonitoringDatum("true", "AppAvailable",monitoredTarget);
+							break;
+						} 
+						else {
+							if ( count == retryTimes) {
+								dcAgent.sendSyncMonitoringDatum("false", "AppAvailable",monitoredTarget);
+								break;
+							}
+							else {
+								count++;
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
 					}
-				} catch (Exception e) {
-					e.printStackTrace();
 				}
+
+				long t1 = System.currentTimeMillis();
+				
 				try {
-					Thread.sleep(samplingTime);
+					Thread.sleep(Math.max(0, samplingTime-t1+t0));
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
