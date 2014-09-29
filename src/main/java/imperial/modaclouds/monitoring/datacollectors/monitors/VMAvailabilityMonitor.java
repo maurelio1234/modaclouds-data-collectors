@@ -64,7 +64,7 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 			}
 
 			try {
-				dcAgent.sendSyncMonitoringDatum("true","VMAvailable", monitoredTarget);
+				dcAgent.sendSyncMonitoringDatum("1","VMAvailable", monitoredTarget);
 				Thread.sleep(samplingTime);
 			} catch (InterruptedException e) {
 				e.printStackTrace();

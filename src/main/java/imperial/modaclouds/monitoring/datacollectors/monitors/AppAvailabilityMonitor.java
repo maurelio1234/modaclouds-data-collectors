@@ -96,12 +96,12 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 
 					try {
 						if (responseCode == 200) {
-							dcAgent.sendSyncMonitoringDatum("true", "AppAvailable",monitoredTarget);
+							dcAgent.sendSyncMonitoringDatum("1", "AppAvailable",monitoredTarget);
 							break;
 						} 
 						else {
 							if ( count == retryTimes) {
-								dcAgent.sendSyncMonitoringDatum("false", "AppAvailable",monitoredTarget);
+								dcAgent.sendSyncMonitoringDatum("0", "AppAvailable",monitoredTarget);
 								break;
 							}
 							else {
