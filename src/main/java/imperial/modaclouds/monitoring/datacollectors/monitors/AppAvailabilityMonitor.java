@@ -2,7 +2,6 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Map;
@@ -86,7 +85,6 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 
 
 			HttpURLConnection connection;
-			try {
 				String url = "http://localhost:"+port+path;
 				logger.info("URL: "+url);
 				int count = 0;
@@ -95,10 +93,16 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 
 				while (true) {
 
-					connection = (HttpURLConnection) new URL(url).openConnection();
-					connection.setConnectTimeout(retryPeriod);
-					connection.setRequestMethod("HEAD");
-					int responseCode = connection.getResponseCode();
+					int responseCode = 0;
+					
+					try {
+						connection = (HttpURLConnection) new URL(url).openConnection();
+						connection.setConnectTimeout(retryPeriod);
+						connection.setRequestMethod("HEAD");
+						responseCode = connection.getResponseCode();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
 
 					try {
 						if (responseCode == 200) {
@@ -128,11 +132,7 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 					}
 				}
 
-			} catch (MalformedURLException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			
 		}
 
 	}
