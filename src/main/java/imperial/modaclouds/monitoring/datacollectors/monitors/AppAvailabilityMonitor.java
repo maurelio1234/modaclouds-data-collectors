@@ -88,6 +88,7 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 			HttpURLConnection connection;
 			try {
 				String url = "http://localhost:"+port+path;
+				logger.info("URL: "+url);
 				int count = 0;
 
 				long t0 = System.currentTimeMillis();
