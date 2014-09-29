@@ -111,7 +111,7 @@ public class ModacloudsMonitor extends Application
 		dcIndex.put("vmavailability", 12);
 		dcIndex.put("detailedCost", 13);
 		dcIndex.put("haproxy", 14);
-		dcIndex.put("appavailability", 12);
+		dcIndex.put("appavailability", 15);
 
 		monitors = new ArrayList<AbstractMonitor>();
 		runningMonitors = new ArrayList<String>();
