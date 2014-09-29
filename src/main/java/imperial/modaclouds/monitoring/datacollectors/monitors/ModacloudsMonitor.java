@@ -330,8 +330,8 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping.put("startuptime", "startupTime");
 			metricCollectorMapping.put("logfile", "logFile");
 			metricCollectorMapping.put("detailedcost", "detailedCost");
-			metricCollectorMapping.put("vmavailability", "vmavailability");
-			metricCollectorMapping.put("appavailability", "appavailability");
+			metricCollectorMapping.put("vmavailable", "vmavailability");
+			metricCollectorMapping.put("appavailable", "appavailability");
 			metricCollectorMapping.put("flexi", "flexi");
 			metricCollectorMapping.put("haproxylog", "haproxy");
 		}
