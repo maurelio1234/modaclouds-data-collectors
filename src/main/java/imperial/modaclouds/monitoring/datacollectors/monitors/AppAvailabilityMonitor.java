@@ -7,6 +7,9 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
@@ -15,6 +18,8 @@ import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
  * The monitoring collector for availability of Applications.
  */
 public class AppAvailabilityMonitor extends AbstractMonitor{
+
+	private Logger logger = LoggerFactory.getLogger(AppAvailabilityMonitor.class);
 
 	/**
 	 * Availability monitor thread.
@@ -65,7 +70,7 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("appavailability")) {			
 							Map<String, String> parameters = dc.getParameters();
 
-							samplingTime = Integer.valueOf(parameters.get("samplingTime"));
+							samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
 							port = Integer.valueOf(parameters.get("port"));
 							retryPeriod = Integer.valueOf(parameters.get("retryPeriod"));
 							retryTimes = Integer.valueOf(parameters.get("retryTimes"));
@@ -84,11 +89,11 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 			try {
 				String url = "http://localhost:"+port+path;
 				int count = 0;
-				
+
 				long t0 = System.currentTimeMillis();
 
 				while (true) {
-					
+
 					connection = (HttpURLConnection) new URL(url).openConnection();
 					connection.setConnectTimeout(retryPeriod);
 					connection.setRequestMethod("HEAD");
@@ -111,14 +116,15 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
-				}
 
-				long t1 = System.currentTimeMillis();
-				
-				try {
-					Thread.sleep(Math.max(0, samplingTime-t1+t0));
-				} catch (InterruptedException e) {
-					e.printStackTrace();
+
+					long t1 = System.currentTimeMillis();
+
+					try {
+						Thread.sleep(Math.max(0, samplingTime-t1+t0));
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 				}
 
 			} catch (MalformedURLException e) {
@@ -140,7 +146,7 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 	@Override
 	public void init() {
 		aavmt.start();
-		System.out.println("App Availability monitor running!");
+		logger.info("App Availability monitor running!");
 	}
 
 	@Override
@@ -148,7 +154,7 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 		while (!aavmt.isInterrupted()) {
 			aavmt.interrupt();
 		}
-		System.out.println("App Availability monitor stopped!");
+		logger.info("App Availability monitor stopped!");
 	}
 
 }

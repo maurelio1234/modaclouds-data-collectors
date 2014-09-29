@@ -3,6 +3,9 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import java.util.Collection;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
@@ -12,6 +15,8 @@ import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
  */
 public class VMAvailabilityMonitor extends AbstractMonitor {
 
+	private Logger logger = LoggerFactory.getLogger(VMAvailabilityMonitor.class);
+	
 	/**
 	 * Availability monitor thread.
 	 */
@@ -53,7 +58,7 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("vmavailability")) {			
 							Map<String, String> parameters = dc.getParameters();
 
-							samplingTime = Integer.valueOf(parameters.get("samplingTime"));
+							samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
 
 							break;
 						}
@@ -83,7 +88,7 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 	@Override
 	public void init() {
 		vavmt.start();
-		System.out.println("VM Availability monitor running!");
+		logger.info("VM Availability monitor running!");
 	}
 
 	@Override
@@ -91,7 +96,7 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 		while (!vavmt.isInterrupted()) {
 			vavmt.interrupt();
 		}
-		System.out.println("VM Availability monitor stopped!");
+		logger.info("VM Availability monitor stopped!");
 	}
 
 }
