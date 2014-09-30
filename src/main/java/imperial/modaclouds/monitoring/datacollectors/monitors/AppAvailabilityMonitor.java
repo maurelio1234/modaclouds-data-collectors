@@ -1,6 +1,7 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Collection;
@@ -101,14 +102,14 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 						connection.setRequestMethod("HEAD");
 						responseCode = connection.getResponseCode();
 					} catch (IOException e1) {
-						e1.printStackTrace();
+						logger.info("Service not available: {}", e1.getMessage());
 					}
 
 					try {
-						if (responseCode == 200) {
+						if (responseCode >= 200 && responseCode < 300) {
 							dcAgent.sendSyncMonitoringDatum("1", "AppAvailable",monitoredTarget);
 							break;
-						} 
+						}
 						else {
 							if ( count == retryTimes) {
 								dcAgent.sendSyncMonitoringDatum("0", "AppAvailable",monitoredTarget);
@@ -119,20 +120,16 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 							}
 						}
 					} catch (Exception e) {
-						e.printStackTrace();
-					}
-
-
-					long t1 = System.currentTimeMillis();
-
-					try {
-						Thread.sleep(Math.max(0, samplingTime-t1+t0));
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+						logger.error("Error while sending datum", e);
 					}
 				}
+				long t1 = System.currentTimeMillis();
 
-			
+				try {
+					Thread.sleep(Math.max(0, samplingTime-t1+t0));
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 		}
 
 	}
