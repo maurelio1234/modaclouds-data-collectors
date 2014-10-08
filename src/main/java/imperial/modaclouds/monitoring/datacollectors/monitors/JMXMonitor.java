@@ -19,7 +19,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -286,9 +286,9 @@ public class JMXMonitor extends AbstractMonitor {
 
 				metricList = new ArrayList<Metric>();
 
-				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-				for (DCMetaData dc: dcConfig) {
+				for (DCConfig dc: dcConfig) {
 
 						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("jmx")) {
 							Metric temp = new Metric();

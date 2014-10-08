@@ -18,7 +18,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -97,9 +97,9 @@ public class FlexiMonitor extends AbstractMonitor {
 		String password = null;
 		String host = null;
 
-		Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+		Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-		for (DCMetaData dc: dcConfig) {
+		for (DCConfig dc: dcConfig) {
 			
 
 				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
@@ -131,8 +131,8 @@ public class FlexiMonitor extends AbstractMonitor {
 
 			while (!fmt.isInterrupted()) {
 				if (System.currentTimeMillis() - startTime > 60000) {
-					dcConfig = dcAgent.getDataCollectors(resourceId);
-					for (DCMetaData dc: dcConfig) {
+					dcConfig = dcAgent.getConfiguration(resourceId,null);
+					for (DCConfig dc: dcConfig) {
 						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
 
 							Map<String, String> parameters = dc.getParameters();

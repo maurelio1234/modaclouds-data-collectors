@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 /**
  * The monitoring collector for availability of Applications.
@@ -63,9 +63,9 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 			if (mode.equals("kb")) {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
-					Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-					for (DCMetaData dc: dcConfig) {
+					for (DCConfig dc: dcConfig) {
 
 						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("appavailability")) {			
 							Map<String, String> parameters = dc.getParameters();

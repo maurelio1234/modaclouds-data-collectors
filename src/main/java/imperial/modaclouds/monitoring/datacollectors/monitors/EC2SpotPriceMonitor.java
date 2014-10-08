@@ -18,7 +18,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
@@ -110,9 +110,9 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 			if (System.currentTimeMillis() - startTime > 10000) {
 				spotInstanceVec = new ArrayList<SpotInstance>();
 
-				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
+				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-				for (DCMetaData dc: dcConfig) {
+				for (DCConfig dc: dcConfig) {
 
 					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("ec2-spotPrice")) {
 
