@@ -1,12 +1,10 @@
 package imperial.modaclouds.monitoring.datacollectors.basic;
 
 import imperial.modaclouds.monitoring.datacollectors.monitors.ModacloudsMonitor;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 import it.polimi.modaclouds.monitoring.dcfactory.DataCollectorFactory;
-import it.polimi.modaclouds.monitoring.dcfactory.ddaconnectors.DDAConnector;
-import it.polimi.modaclouds.monitoring.dcfactory.ddaconnectors.RCSConnector;
-import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.FusekiConnector;
-import it.polimi.modaclouds.monitoring.dcfactory.kbconnectors.KBConnector;
+import it.polimi.modaclouds.monitoring.dcfactory.wrappers.DDAConnector;
+import it.polimi.modaclouds.monitoring.dcfactory.wrappers.KBConnector;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -41,12 +39,12 @@ public class DataCollectorAgent extends DataCollectorFactory {
 
 		loadConfiguration();
 
-		DDAConnector dda = new RCSConnector(ddaURL);
-		KBConnector kb = new FusekiConnector(kbURL);
+		DDAConnector dda = new DDAConnector(ddaURL);
+		KBConnector kb = new KBConnector(kbURL);
 		_INSTANCE = new DataCollectorAgent(dda, kb);
 
-		_INSTANCE.addMonitoredResourceId(appId);
-		_INSTANCE.addMonitoredResourceId(vmId);
+//		_INSTANCE.addMonitoredResourceId(appId);
+//		_INSTANCE.addMonitoredResourceId(vmId);
 
 		logger.info(
 				"{} initialized with:\n\tddaURL: {}\n\tkbURL: {}\n\tkbSyncPeriod: {}\n\tappId: {}\n\tvmId: {}",
@@ -87,13 +85,13 @@ public class DataCollectorAgent extends DataCollectorFactory {
 
 	@Override
 	protected void syncedWithKB() {
-		Collection<DCMetaData> appDataCollectors = getDataCollectors(appId);
-		Collection<DCMetaData> vmDataCollectors = getDataCollectors(vmId);
+		Collection<DCConfig> appDataCollectors = getConfiguration(appId, null);
+		Collection<DCConfig> vmDataCollectors = getConfiguration(vmId, null);
 
 		List<String> newCollectors = new ArrayList<String>();
 
 		// VM METRIC
-		for (DCMetaData vmDcConfig : vmDataCollectors) {
+		for (DCConfig vmDcConfig : vmDataCollectors) {
 			if (!newCollectors.contains(ModacloudsMonitor
 					.findCollector(vmDcConfig.getMonitoredMetric()))) {
 				newCollectors.add(ModacloudsMonitor.findCollector(vmDcConfig
@@ -102,7 +100,7 @@ public class DataCollectorAgent extends DataCollectorFactory {
 		}
 
 		// APP METRIC
-		for (DCMetaData appDcConfig : appDataCollectors) {
+		for (DCConfig appDcConfig : appDataCollectors) {
 			if (!newCollectors.contains(ModacloudsMonitor
 					.findCollector(appDcConfig.getMonitoredMetric()))) {
 				newCollectors.add(ModacloudsMonitor.findCollector(appDcConfig

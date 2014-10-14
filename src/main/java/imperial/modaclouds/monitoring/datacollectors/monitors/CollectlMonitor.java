@@ -18,7 +18,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -152,8 +152,8 @@ public class CollectlMonitor extends AbstractMonitor {
 					if (System.currentTimeMillis() - startTime > 10000) {
 						ArrayList<String> requiredMetric = new ArrayList<String>();
 
-						Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
-						for (DCMetaData dc: dcConfig) {
+						Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+						for (DCConfig dc: dcConfig) {
 
 							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
 
@@ -412,8 +412,8 @@ public class CollectlMonitor extends AbstractMonitor {
 
 		if (mode.equals("kb")) {
 
-			Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
-			for (DCMetaData dc: dcConfig) {
+			Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+			for (DCConfig dc: dcConfig) {
 				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
 
 					requiredMetric.add(dc.getMonitoredMetric());

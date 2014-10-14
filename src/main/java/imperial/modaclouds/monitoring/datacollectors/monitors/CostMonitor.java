@@ -19,7 +19,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 import freemarker.core.ParseException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCMetaData;
+import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
@@ -136,8 +136,8 @@ public class CostMonitor extends AbstractMonitor{
 			if (System.currentTimeMillis() - startTime > 10000) {
 
 				measureNames = new ArrayList<String>();
-				Collection<DCMetaData> dcConfig = dcAgent.getDataCollectors(resourceId);
-				for (DCMetaData dc: dcConfig) {
+				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+				for (DCConfig dc: dcConfig) {
 					
 					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("cost")) {
 
