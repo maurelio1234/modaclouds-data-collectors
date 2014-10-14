@@ -284,7 +284,7 @@ public class ModacloudsMonitor extends Application
 			metricCollectorMapping = new HashMap<String,String>();
 
 			metricCollectorMapping.put("cpuutilization", "sigar");
-			metricCollectorMapping.put("cpustolen", "haproxy");
+			metricCollectorMapping.put("cpustolen", "sigar");
 			metricCollectorMapping.put("memused", "sigar");
 			metricCollectorMapping.put("threads_running", "mysql");
 			metricCollectorMapping.put("threads_cached", "mysql");
