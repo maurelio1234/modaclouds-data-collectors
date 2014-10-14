@@ -189,11 +189,11 @@ public class SigarMonitor extends AbstractMonitor {
 
 
 					} catch (ParserConfigurationException e1) {
-						e1.printStackTrace();
+						logger.info(e1.getMessage());
 					} catch (SAXException e) {
-						e.printStackTrace();
+						logger.info(e.getMessage());
 					} catch (IOException e) {
-						e.printStackTrace();
+						logger.info(e.getMessage());
 					}
 					startTime = System.currentTimeMillis();
 				}
@@ -206,7 +206,7 @@ public class SigarMonitor extends AbstractMonitor {
 			try {
 				Thread.sleep(Math.max(toSleep, 0));
 			} catch (InterruptedException e) {
-				e.printStackTrace();
+				logger.info(e.getMessage());
 			}
 
 			long t0 = System.currentTimeMillis();
@@ -226,7 +226,7 @@ public class SigarMonitor extends AbstractMonitor {
 					break;
 				}
 			} catch (SigarException e) {
-				e.printStackTrace();
+				logger.info(e.getMessage());
 			}
 
 			boolean isSent = false;
@@ -240,7 +240,7 @@ public class SigarMonitor extends AbstractMonitor {
 					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
 				}
 			} catch (Exception e) {
-				e.printStackTrace();
+				logger.info(e.getMessage());
 			} 
 
 			long t1 = System.currentTimeMillis();
