@@ -7,7 +7,9 @@ import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -74,15 +76,19 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 
 				if (System.currentTimeMillis() - startTime > 60000) {
 
+					System.out.println(resourceId);
+					
 					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-
+										
 					for (DCConfig dc : dcConfig) {
-
+			
+						System.out.println(dc.getMonitoredMetric());
+						
 						if (ModacloudsMonitor.findCollector(
 								dc.getMonitoredMetric()).equals("haproxy")) {
-
+							
 							Map<String, String> parameters = dc.getParameters();
-
+							
 							fileName = parameters.get("logFileName");
 							period = Integer.valueOf(parameters
 									.get("samplingTime"));
@@ -151,20 +157,20 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 				} else {
 					file.seek(filePointer);
 					String line;
+					List<String> lines = new ArrayList<String>();
 
 					while ((line = file.readLine()) != null) {
 						if (line.contains("JSESSIONID")) {
 							if (line.contains(".css")) {
 								continue;
 							}
-							System.out.println(line);
-							// ddaConnector.sendSyncMonitoringDatum(line,
-							// "HaproxyLog", monitoredTarget);
-							dcAgent.sendAsyncMonitoringDatum(line,
-									"CPUStolen", monitoredTarget);
+							lines.add(line);
+							//System.out.println(line);							
 						}
 					}
-
+					if (lines.size() > 0) {
+						dcAgent.sendSyncMonitoringData(lines, "HaproxyLog", monitoredTarget);
+					}
 					filePointer = file.getFilePointer();
 				}
 
