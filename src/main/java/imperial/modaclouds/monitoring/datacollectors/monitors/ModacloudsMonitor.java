@@ -198,7 +198,7 @@ public class ModacloudsMonitor extends Application
 				monitors.add(newMonitor);
 				break;
 			case 14:
-				newMonitor = new HaproxyLogMonitor(DataCollectorAgent.getAppId(), mode);
+				newMonitor = new HaproxyLogMonitor(DataCollectorAgent.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 15:
@@ -341,7 +341,7 @@ public class ModacloudsMonitor extends Application
 
 		if (collector == null) {
 			logger.error("Metric {} not found", metricName);
-			return null;
+			return "";
 		}
 		else {
 			return collector;

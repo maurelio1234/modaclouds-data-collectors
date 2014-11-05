@@ -5,10 +5,13 @@ import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 import it.polimi.modaclouds.monitoring.dcfactory.DataCollectorFactory;
 import it.polimi.modaclouds.monitoring.dcfactory.wrappers.DDAConnector;
 import it.polimi.modaclouds.monitoring.dcfactory.wrappers.KBConnector;
+import it.polimi.modaclouds.monitoring.kb.api.DeserializationException;
+import it.polimi.modaclouds.monitoring.kb.api.FusekiKBAPI;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,24 +90,33 @@ public class DataCollectorAgent extends DataCollectorFactory {
 	protected void syncedWithKB() {
 		Collection<DCConfig> appDataCollectors = getConfiguration(appId, null);
 		Collection<DCConfig> vmDataCollectors = getConfiguration(vmId, null);
-
+		
 		List<String> newCollectors = new ArrayList<String>();
-
+		
 		// VM METRIC
 		for (DCConfig vmDcConfig : vmDataCollectors) {
-			if (!newCollectors.contains(ModacloudsMonitor
-					.findCollector(vmDcConfig.getMonitoredMetric()))) {
-				newCollectors.add(ModacloudsMonitor.findCollector(vmDcConfig
-						.getMonitoredMetric()));
+			System.out.println(vmDcConfig.getMonitoredMetric());
+			String collector = ModacloudsMonitor.findCollector(vmDcConfig
+					.getMonitoredMetric());
+			System.out.println(collector);
+			if (collector == "") {
+				continue;
+			}
+			
+			if (!newCollectors.contains(collector)) {
+				newCollectors.add(collector);
 			}
 		}
 
 		// APP METRIC
 		for (DCConfig appDcConfig : appDataCollectors) {
-			if (!newCollectors.contains(ModacloudsMonitor
-					.findCollector(appDcConfig.getMonitoredMetric()))) {
-				newCollectors.add(ModacloudsMonitor.findCollector(appDcConfig
-						.getMonitoredMetric()));
+			String collector = ModacloudsMonitor.findCollector(appDcConfig
+					.getMonitoredMetric());
+			if (collector == null) {
+				continue;
+			}
+			if (!newCollectors.contains(collector)) {
+				newCollectors.add(collector);
 			}
 		}
 
@@ -140,5 +152,8 @@ public class DataCollectorAgent extends DataCollectorFactory {
 		return vmId;
 	}
 
-
+	public Set<?> getEntitiesByPropertyValue(String property, String propertyName, String graphName) throws DeserializationException{
+		FusekiKBAPI kb = new FusekiKBAPI(kbURL);
+		return kb.getEntitiesByPropertyValue(property, propertyName, graphName);
+	}
 }
