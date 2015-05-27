@@ -16,6 +16,8 @@
  */
 package imperial.modaclouds.monitoring.datacollectors.basic;
 
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+
 
 /**
  * The abstract class of monitor.
@@ -58,5 +60,7 @@ public abstract class AbstractMonitor implements Runnable
 	public String getMonitorName() {
 		return monitorName;
 	}
+
+	public abstract void setDCAgent(DCAgent dcAgent);
 
 }

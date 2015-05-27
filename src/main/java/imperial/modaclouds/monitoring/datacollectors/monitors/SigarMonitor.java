@@ -17,9 +17,12 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
 import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
 import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -73,7 +76,7 @@ public class SigarMonitor extends AbstractMonitor {
 	 */
 	private List<Metric> metricList;
 
-	private DataCollectorAgent dcAgent; 
+	private DCAgent dCAgent; 
 
 
 	/**
@@ -88,8 +91,11 @@ public class SigarMonitor extends AbstractMonitor {
 
 		monitoredTarget = resourceId;
 		monitorName = "sigar";
-
-		dcAgent = DataCollectorAgent.getInstance();
+	}
+	
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dCAgent = dcAgent;
 	}
 
 	@Override
@@ -103,7 +109,7 @@ public class SigarMonitor extends AbstractMonitor {
 
 		while (!sigt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
 
@@ -111,29 +117,16 @@ public class SigarMonitor extends AbstractMonitor {
 					nextPauseTime = new ArrayList<Integer>();
 
 					metricList = new ArrayList<Metric>();
+					
+					Map<String, String> parameters = dCAgent.getParameters(metric);
 
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+					period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+					nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+					temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
+					
 
-					for (DCConfig dc: dcConfig) {
-
-							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("sigar")) {
-								Metric temp = new Metric();
-
-								temp.setMetricName(dc.getMonitoredMetric());
-
-
-								Map<String, String> parameters = dc.getParameters();
-
-								period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
-								nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
-								temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
-								
-
-								metricList.add(temp);
-							}
-						
-					}
-
+					metricList.add(temp);
+					
 					startTime = System.currentTimeMillis();
 				}
 			}
@@ -237,7 +230,8 @@ public class SigarMonitor extends AbstractMonitor {
 			try {
 				if (isSent) {
 					logger.info("Sending datum: {} {} {}",value, metricList.get(index).getMetricName(), monitoredTarget);
-					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
+					dCAgent.send(new VM(Config.getInstance().getVmType(), 
+							Config.getInstance().getVmId()), metricList.get(index).getMetricName(), String.valueOf(value));  
 				}
 			} catch (Exception e) {
 				logger.info(e.getMessage());
