@@ -18,9 +18,7 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
 import imperial.modaclouds.monitoring.datacollectors.basic.Config;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 import it.polimi.tower4clouds.data_collector_library.DCAgent;
 import it.polimi.tower4clouds.model.ontology.VM;
 
@@ -29,10 +27,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -118,14 +116,17 @@ public class SigarMonitor extends AbstractMonitor {
 
 					metricList = new ArrayList<Metric>();
 					
-					Map<String, String> parameters = dCAgent.getParameters(metric);
+					for (String metric : getProvidedMetrics()) {
+						Metric temp = new Metric();
+						Map<String, String> parameters = dCAgent.getParameters(metric);
 
-					period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
-					nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
-					temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
-					
+						period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+						nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+						temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
+						
 
-					metricList.add(temp);
+						metricList.add(temp);
+					}
 					
 					startTime = System.currentTimeMillis();
 				}
@@ -246,6 +247,11 @@ public class SigarMonitor extends AbstractMonitor {
 		}
 
 
+	}
+
+	private Set<String> getProvidedMetrics() {
+		// TODO list of metrics provided by this monitor (case sensitive)
+		return null;
 	}
 
 	@Override
