@@ -17,8 +17,10 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -26,10 +28,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
@@ -42,6 +48,8 @@ import com.jcraft.jsch.Session;
  * The monitoring collector for Flexiant cloud.
  */
 public class FlexiMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(FlexiMonitor.class);
 
 	/**
 	 * Flexi monitor thread.
@@ -73,7 +81,7 @@ public class FlexiMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 
 	/**
@@ -87,7 +95,6 @@ public class FlexiMonitor extends AbstractMonitor {
 		super(resourceId, mode);
 		monitorName = "flexiant";
 		monitoredTarget = resourceId;
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -97,23 +104,20 @@ public class FlexiMonitor extends AbstractMonitor {
 		String password = null;
 		String host = null;
 
-		Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-
-		for (DCConfig dc: dcConfig) {
-			
-
-				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
-
-					Map<String, String> parameters = dc.getParameters();
+		for (String metric : getProvidedMetrics()) {
+			try {
+				if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId()), metric)) {
+					Map<String, String> parameters = dcAgent.getParameters(metric);
 
 					monitoredMachineAddress = parameters.get("monitoredMachineAddress");
 					user = parameters.get("user");
 					password = parameters.get("password");
 					host = parameters.get("host");
-
-					break;
 				}
-			
+			} catch (ConfigurationException e) {
+				e.printStackTrace();
+			}
 		}
 
 		JSch jsch = new JSch();
@@ -131,19 +135,17 @@ public class FlexiMonitor extends AbstractMonitor {
 
 			while (!fmt.isInterrupted()) {
 				if (System.currentTimeMillis() - startTime > 60000) {
-					dcConfig = dcAgent.getConfiguration(resourceId,null);
-					for (DCConfig dc: dcConfig) {
-						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("flexi")) {
 
-							Map<String, String> parameters = dc.getParameters();
+					for (String metric : getProvidedMetrics()) {
+						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId()), metric)) {
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
 							period = Integer.valueOf(parameters.get("samplingTime"));
 							samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-							
-							
-							break;
 						}
 					}
+
 					startTime = System.currentTimeMillis();
 				}
 
@@ -190,7 +192,9 @@ public class FlexiMonitor extends AbstractMonitor {
 							if (count%2 == 1) {
 								try {
 									if (isSent) {
-										dcAgent.sendSyncMonitoringDatum(m.group(1), metricName, monitoredTarget);
+										logger.info("Sending datum: {} {} {}",m.group(1), metricName, monitoredTarget);
+										dcAgent.send(new VM(Config.getInstance().getVmType(), 
+												Config.getInstance().getVmId()), metricName, m.group(1)); 
 									}
 								} catch (Exception e) {
 									// TODO Auto-generated catch block
@@ -218,11 +222,18 @@ public class FlexiMonitor extends AbstractMonitor {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		} catch (NumberFormatException e) {
-			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ConfigurationException e) {
 			e.printStackTrace();
 		}
 
 
+	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("Flexi");
+		return metrics;
 	}
 
 	@Override
@@ -244,6 +255,11 @@ public class FlexiMonitor extends AbstractMonitor {
 			fmt.interrupt();
 		}
 		System.out.println("Flexiant cloud monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

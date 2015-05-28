@@ -92,7 +92,6 @@ public class ModacloudsMonitor implements Observer {
 	/**
 	 * Knowledge base connector.
 	 */
-	// private static KBConnector kbConnector;
 
 	/**
 	 * The mapp
@@ -288,11 +287,12 @@ public class ModacloudsMonitor implements Observer {
 	 */
 	public static void main(String[] args) throws Exception {
 		if (args.length < 1) {
-			logger.error("Please input the mode of the DC");
-			System.exit(-1);
+			logger.error("Defualt mode is using the tower4clouds.");
+			mode = "tower4clouds";
 		}
-
-		mode = args[0];
+		else {
+			mode = args[0];
+		}
 		
 		modacloudsMonitor = new ModacloudsMonitor();
 
@@ -367,13 +367,69 @@ public class ModacloudsMonitor implements Observer {
 	private static Set<String> getInfrastructureMetrics() {
 		// TODO return a set with all the infrastructure level metrics provided
 		// by this dc (case sensitive)
-		return null;
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("CPUUtilization");
+		metrics.add("CPUStolen");
+		metrics.add("MemUsed");
+		metrics.add("DiskreadopsCloudWatch");
+		metrics.add("CpuutilizationCloudWatch");
+		metrics.add("DiskReadOpsCloudWatch");
+		metrics.add("DiskWriteOpsCloudWatch");
+		metrics.add("DiskReadBytesCloudWatch");
+		metrics.add("DiskWriteBytesCloudWatch");
+		metrics.add("NetworkInCloudWatch");
+		metrics.add("NetworkOutCloudWatch");
+		metrics.add("CpuUtilizationCollectl");
+		metrics.add("ContextSwitchCollectl");
+		metrics.add("CpuUtilStolenCollectl");
+		metrics.add("InterruptsCollectl");
+		metrics.add("MaxProcsCollectl");
+		metrics.add("MaxProcsQueueCollectl");
+		metrics.add("MemUsedCollectl");
+		metrics.add("MemSwapSpaceUsedCollectl");
+		metrics.add("NetworkInBytesCollectl");
+		metrics.add("NetworkOutBytesCollectl");
+		metrics.add("GeneralCost");
+		metrics.add("EC2-SpotPrice");
+		metrics.add("HaproxyLog");
+		metrics.add("Flexi");
+		metrics.add("VmAvailable");
+		metrics.add("StartupTime");
+		metrics.add("DetailedCost");
+
+		return metrics;
 	}
 
 	private static Set<String> getApplicationMetrics() {
 		// TODO return a set with all the application level metrics provided by
 		// this dc (case sensitive)
-		return null;
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("Threads_running");
+		metrics.add("Threads_cached");
+		metrics.add("Threads_connected");
+		metrics.add("Threads_created");
+		metrics.add("Queries");
+		metrics.add("Bytes_received");
+		metrics.add("Bytes_sent");
+		metrics.add("Connections");
+		metrics.add("Threads_connected");
+		metrics.add("Aborted_connects");
+		metrics.add("Aborted_clients");
+		metrics.add("Table_locks_immediate");
+		metrics.add("Table_locks_waited");
+		metrics.add("Com_insert");
+		metrics.add("Com_delete");
+		metrics.add("Com_update");
+		metrics.add("Com_select");
+		metrics.add("Qcache_hits");
+		metrics.add("PeakThreadCountJMX");
+		metrics.add("HeapMemoryUsedJMX");
+		metrics.add("UptimeJMX");
+		metrics.add("ResponseInfo");
+		metrics.add("AppAvailable");
+		metrics.add("LogFile");
+			
+		return metrics;
 	}
 	
 	@Override

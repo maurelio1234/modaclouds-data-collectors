@@ -17,9 +17,11 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.InternalComponent;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -32,16 +34,20 @@ import java.lang.management.RuntimeMXBean;
 import java.lang.management.ThreadMXBean;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
@@ -51,6 +57,8 @@ import com.sun.tools.attach.VirtualMachineDescriptor;
  * The monitoring collector for JMX.
  */
 public class JMXMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(JMXMonitor.class);
 
 	/**
 	 * JMX remote connector address.
@@ -127,7 +135,7 @@ public class JMXMonitor extends AbstractMonitor {
 	 */
 	private Thread jmxt;
 
-	
+
 
 	/**
 	 * The unique monitored target.
@@ -139,7 +147,7 @@ public class JMXMonitor extends AbstractMonitor {
 	 */
 	private List<Metric> metricList;
 
-	private DataCollectorAgent dcAgent; 
+	private DCAgent dcAgent; 
 
 
 	/**
@@ -154,11 +162,9 @@ public class JMXMonitor extends AbstractMonitor {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 		super(resourceId, mode);
-		
+
 		monitoredTarget = resourceId;
 		monitorName = "jmx";
-
-		dcAgent = DataCollectorAgent.getInstance();
 
 		try {
 			connectToOFBiz();
@@ -286,16 +292,15 @@ public class JMXMonitor extends AbstractMonitor {
 
 				metricList = new ArrayList<Metric>();
 
-				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+				for (String metric : getProvidedMetrics()) {
+					try {
+						if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
+								Config.getInstance().getInternalComponentId()), metric)) {
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
-				for (DCConfig dc: dcConfig) {
-
-						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("jmx")) {
 							Metric temp = new Metric();
 
-							temp.setMetricName(dc.getMonitoredMetric());
-
-							Map<String,String> parameters = dc.getParameters();
+							temp.setMetricName(metric);
 
 							period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
 							nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
@@ -303,7 +308,9 @@ public class JMXMonitor extends AbstractMonitor {
 
 							metricList.add(temp);
 						}
-					
+					} catch (NumberFormatException | ConfigurationException e) {
+						e.printStackTrace();
+					}
 				}
 
 				startTime = System.currentTimeMillis();
@@ -342,7 +349,9 @@ public class JMXMonitor extends AbstractMonitor {
 
 			try {
 				if (isSent) {
-					dcAgent.sendSyncMonitoringDatum(String.valueOf(value), metricList.get(index).getMetricName(), monitoredTarget);
+					logger.info("Sending datum: {} {} {}",value, metricList.get(index).getMetricName(), monitoredTarget);
+					dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+							Config.getInstance().getInternalComponentId()), metricList.get(index).getMetricName(),value);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -357,6 +366,14 @@ public class JMXMonitor extends AbstractMonitor {
 		}
 
 
+	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("PeakThreadCountJMX");
+		metrics.add("HeapMemoryUsedJMX");
+		metrics.add("UptimeJMX");
+		return metrics;
 	}
 
 	@Override
@@ -409,6 +426,11 @@ public class JMXMonitor extends AbstractMonitor {
 			e.printStackTrace();
 		}
 		System.out.println("JMX monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

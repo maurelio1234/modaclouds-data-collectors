@@ -1,22 +1,27 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -24,6 +29,8 @@ import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 public class HaproxyLogMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(HaproxyLogMonitor.class);
 
 	/**
 	 * Extract the request information according the regular expression.
@@ -35,7 +42,7 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 	 */
 	private String monitoredTarget;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 	/**
 	 * Monitoring period.
@@ -62,8 +69,6 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 
 		monitorName = "haproxy";
 		monitoredTarget = resourceId;
-
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -72,27 +77,24 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 
 		while (!hamt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 60000) {
 
 					System.out.println(resourceId);
-					
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-										
-					for (DCConfig dc : dcConfig) {
-			
-						System.out.println(dc.getMonitoredMetric());
-						
-						if (ModacloudsMonitor.findCollector(
-								dc.getMonitoredMetric()).equals("haproxy")) {
-							
-							Map<String, String> parameters = dc.getParameters();
-							
-							fileName = parameters.get("logFileName");
-							period = Integer.valueOf(parameters
-									.get("samplingTime"));
-							break;
+
+					for (String metric : getProvidedMetrics()) {
+						try {
+							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId()), metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(metric);
+
+								fileName = parameters.get("logFileName");
+								period = Integer.valueOf(parameters
+										.get("samplingTime"));
+							}
+						} catch (NumberFormatException | ConfigurationException e) {
+							e.printStackTrace();
 						}
 					}
 				}
@@ -169,14 +171,16 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 						}
 					}
 					if (lines.size() > 0) {
-						dcAgent.sendSyncMonitoringData(lines, "HaproxyLog", monitoredTarget);
+						logger.info("Sending datum: {} {} {}",lines, "HaproxyLog", monitoredTarget);
+						dcAgent.send(new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId()), "HaproxyLog", lines);  
 					}
 					filePointer = file.getFilePointer();
 				}
 
 				file.close();
 
-			} catch (IOException e) {
+			} catch (IOException | ConfigurationException e) {
 				e.printStackTrace();
 			} finally {
 				Long t1 = System.currentTimeMillis();
@@ -189,6 +193,13 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 		}
 
 	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("HaproxyLog");
+		return metrics;
+	}
+
 
 	@Override
 	public void start() {
@@ -208,6 +219,11 @@ public class HaproxyLogMonitor extends AbstractMonitor {
 		}
 
 		System.out.println("Haproxy monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

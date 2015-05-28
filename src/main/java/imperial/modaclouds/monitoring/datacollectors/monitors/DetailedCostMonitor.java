@@ -17,8 +17,10 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,13 +30,17 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -51,6 +57,8 @@ import com.amazonaws.util.StringUtils;
  * The monitoring collector for detailed cost on EC2.
  */
 public class DetailedCostMonitor extends AbstractMonitor{
+
+	private Logger logger = LoggerFactory.getLogger(DetailedCostMonitor.class);
 
 	/**
 	 * CloudWatch monitor thread.
@@ -82,13 +90,13 @@ public class DetailedCostMonitor extends AbstractMonitor{
 	 */
 	private Map<String,Double> cost_spot;
 
-	
+
 	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 
 	/**
@@ -102,8 +110,6 @@ public class DetailedCostMonitor extends AbstractMonitor{
 		super(ownURI, mode);
 		monitorName = "detailedCost";
 		monitoredTarget = resourceId;
-		
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -129,24 +135,23 @@ public class DetailedCostMonitor extends AbstractMonitor{
 
 				cost_spot = new HashMap<String,Double>();
 
-				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-
-				for (DCConfig dc: dcConfig) {
-
-					
-						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("detailedCost")) {
-
-							Map<String, String> parameters = dc.getParameters();
+				for (String metric : getProvidedMetrics()) {
+					try {
+						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId()), metric)) {
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
 							accessKeyId = parameters.get("accessKey");
 							secretKey = parameters.get("secretKey");
 							bucketName = parameters.get("bucketName");
 							filePath = parameters.get("filePath");
 							period = Integer.valueOf(parameters.get("samplingTime"))*1000;
-							
-							break;
 						}
-					
+					} catch (NumberFormatException e) {
+						e.printStackTrace();
+					} catch (ConfigurationException e) {
+						e.printStackTrace();
+					}
 				}
 
 				startTime = System.currentTimeMillis();
@@ -261,23 +266,33 @@ public class DetailedCostMonitor extends AbstractMonitor{
 
 		try {
 			for (Map.Entry<String, Double> entry : cost_nonspot.entrySet()) {
-				String key = entry.getKey();
+				//String key = entry.getKey();
 				Double value = entry.getValue();
 
 				//System.out.println("Non spot Instance id: "+key+"\tCost: "+value);
-				dcAgent.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
+				logger.info("Sending datum: {} {} {}",value, "detailedCost", monitoredTarget);
+				dcAgent.send(new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId()), "detailedCost", value); 
 			}
 
 			for (Map.Entry<String, Double> entry : cost_spot.entrySet()) {
-				String key = entry.getKey();
+				//String key = entry.getKey();
 				Double value = entry.getValue();
 
 				//System.out.println("Spot Instance id: "+key+"\tCost: "+value);
-				dcAgent.sendSyncMonitoringDatum(String.valueOf(value), "detailedCost", monitoredTarget);
+				logger.info("Sending datum: {} {} {}",value, "detailedCost", monitoredTarget);
+				dcAgent.send(new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId()), "detailedCost", value); 
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		} 
+	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("DetailedCost");
+		return metrics;
 	}
 
 	@Override
@@ -297,5 +312,10 @@ public class DetailedCostMonitor extends AbstractMonitor{
 			dcmt.interrupt();
 		}
 		System.out.println("Detailed cost monitor stopped!");		
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 }

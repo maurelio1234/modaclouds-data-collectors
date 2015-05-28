@@ -17,18 +17,24 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -39,6 +45,8 @@ import com.jcraft.jsch.Session;
  */
 public class StartupTimeMonitor extends AbstractMonitor{
 
+	private Logger logger = LoggerFactory.getLogger(StartupTimeMonitor.class);
+
 	private List<VmDetail> vms;
 
 	/**
@@ -46,14 +54,12 @@ public class StartupTimeMonitor extends AbstractMonitor{
 	 */
 	private Thread sutm;
 
-	
-
 	/**
 	 * The unique monitored target.
 	 */
 	private String monitoredTarget;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 
 	/**
@@ -114,7 +120,6 @@ public class StartupTimeMonitor extends AbstractMonitor{
 		monitoredTarget =resourceId;
 		monitorName = "startupTime";
 
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -122,14 +127,12 @@ public class StartupTimeMonitor extends AbstractMonitor{
 
 		vms = new ArrayList<VmDetail>();
 
-		Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+		for (String metric : getProvidedMetrics()) {
+			try {
+				if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId()), metric)) {
+					Map<String, String> parameters = dcAgent.getParameters(metric);
 
-		for (DCConfig dc: dcConfig) {
-
-				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("startupTime")) {
-
-
-					Map<String, String> parameters = dc.getParameters();
 					VmDetail vm = new VmDetail();
 
 					vm.connectTimeout = Integer.valueOf(parameters.get("connectTimeout"))*1000;
@@ -139,14 +142,21 @@ public class StartupTimeMonitor extends AbstractMonitor{
 					vm.isSpot = Boolean.valueOf(parameters.get("isSpot"));
 					vm.keyFile = parameters.get("keyFile");
 					vm.password = parameters.get("password");
-					
-					break;
 				}
-			
+			} catch (NumberFormatException | ConfigurationException e) {
+				e.printStackTrace();
+			}
 		}
 
 		analyseVms();
 	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("StartupTime");
+		return metrics;
+	}
+
 
 	/**
 	 * Start sub thread to monitor the startup time of the VMs.
@@ -204,7 +214,9 @@ public class StartupTimeMonitor extends AbstractMonitor{
 						Date currentTime = new Date();
 						vm.startupTime = (currentTime.getTime()-date_launch.getTime())/1000;
 						try {
-							dcAgent.sendSyncMonitoringDatum(String.valueOf(vm.startupTime), "StartupTime", monitoredTarget);
+							logger.info("Sending datum: {} {} {}",vm.startupTime, "StartupTime", monitoredTarget);
+							dcAgent.send(new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId()), "StartupTime", vm.startupTime);
 						} catch (Exception e) {
 							e.printStackTrace();
 						} 
@@ -240,6 +252,11 @@ public class StartupTimeMonitor extends AbstractMonitor{
 			sutm.interrupt();
 		}
 		System.out.println("Startup time monitor stopped!");		
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

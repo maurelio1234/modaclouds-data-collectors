@@ -18,21 +18,26 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import freemarker.core.ParseException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
@@ -45,6 +50,8 @@ import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsResult;
  * The monitoring collector for cost on EC2.
  */
 public class CostMonitor extends AbstractMonitor{
+
+	private Logger logger = LoggerFactory.getLogger(CostMonitor.class);
 
 	/**
 	 * CloudWatch monitor thread.
@@ -71,7 +78,7 @@ public class CostMonitor extends AbstractMonitor{
 	 */
 	private double samplingProb;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 	/**
 	 * The measure set to store the monitoring value.
@@ -111,12 +118,10 @@ public class CostMonitor extends AbstractMonitor{
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 		super(resourceId, mode);
-		
-		monitoredTarget = resourceId;
-		
-		monitorName = "cost";
 
-		dcAgent = DataCollectorAgent.getInstance();
+		monitoredTarget = resourceId;
+
+		monitorName = "cost";
 	}
 
 
@@ -136,22 +141,25 @@ public class CostMonitor extends AbstractMonitor{
 			if (System.currentTimeMillis() - startTime > 10000) {
 
 				measureNames = new ArrayList<String>();
-				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-				for (DCConfig dc: dcConfig) {
-					
-					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("cost")) {
 
-						measureNames.add("EstimatedCharges");
+				for (String metric : getProvidedMetrics()) {
+					try {
+						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId()), metric)) {
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
-						Map<String, String> parameters = dc.getParameters();
+							measureNames.add("EstimatedCharges");
 
-						accessKeyId = parameters.get("accessKey");
-						secretKey = parameters.get("secretKey");
-						period = Integer.valueOf(parameters.get("samplingTime"))*1000;
-						samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-					
+							accessKeyId = parameters.get("accessKey");
+							secretKey = parameters.get("secretKey");
+							period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+							samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+						}
+					} catch (NumberFormatException | ConfigurationException e) {
+						e.printStackTrace();
 					}
 				}
+
 				cloudWatchClient = new AmazonCloudWatchClient(new BasicAWSCredentials(accessKeyId, secretKey));
 				cloudWatchClient.setEndpoint("monitoring.us-east-1.amazonaws.com");
 
@@ -168,7 +176,9 @@ public class CostMonitor extends AbstractMonitor{
 				for (String measureName : measureSet.getMeasureNames()) {
 					try {
 						if (Math.random() < samplingProb) {
-							dcAgent.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), "Cost", monitoredTarget);
+							logger.info("Sending datum: {} {} {}",measureSet.getMeasure(measureName), "Cost", monitoredTarget);
+							dcAgent.send(new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId()), "Cost", measureSet.getMeasure(measureName)); 
 						}
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
@@ -188,6 +198,13 @@ public class CostMonitor extends AbstractMonitor{
 
 		}
 	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("GeneralCost");
+		return metrics;
+	}
+
 
 	/**
 	 * Retrieve monitoring value from metric names.
@@ -282,5 +299,11 @@ public class CostMonitor extends AbstractMonitor{
 			cwmt.interrupt();
 		}
 		System.out.println("Cost monitor stopped!");		
+	}
+
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 }

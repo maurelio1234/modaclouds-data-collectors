@@ -17,16 +17,19 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.InternalComponent;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +37,8 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -47,6 +52,8 @@ import org.xml.sax.SAXException;
 
  */
 public class LogFileMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(LogFileMonitor.class);
 
 	/**
 	 * Extract the request information according the regular expression.
@@ -73,7 +80,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
-	
+
 
 	/**
 	 * The unique monitored target.
@@ -90,7 +97,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 	/**
 	 * Constructor of the class.
@@ -103,8 +110,6 @@ public class LogFileMonitor extends AbstractMonitor {
 		super(resourceId, mode);
 		monitoredTarget = resourceId;
 		monitorName = "logFile";
-
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -114,27 +119,26 @@ public class LogFileMonitor extends AbstractMonitor {
 
 		while(!almt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
 
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+					for (String metric : getProvidedMetrics()) {
+						try {
+							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId()), metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(metric);
 
-					for (DCConfig dc: dcConfig) {
-
-
-							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("logfile")) {
-
-								Map<String, String> parameters = dc.getParameters();
-								
 								fileName = parameters.get("fileName");
 								pattern = parameters.get("pattern");
 								period = Integer.valueOf(parameters.get("samplingTime"));
 								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-								break;
 							}
-						
+						} catch (NumberFormatException | ConfigurationException e) {
+							e.printStackTrace();
+						}
 					}
+
 					startTime = System.currentTimeMillis();
 				}
 			}
@@ -199,7 +203,9 @@ public class LogFileMonitor extends AbstractMonitor {
 						//System.out.println(temp);
 						try {
 							if (Math.random() < samplingProb) {
-								dcAgent.sendSyncMonitoringDatum(temp, CollectedMetric, monitoredTarget);
+								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
+								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
 							}
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 						} catch (NumberFormatException e) {
@@ -214,7 +220,7 @@ public class LogFileMonitor extends AbstractMonitor {
 			} catch (IOException e) {
 				e.printStackTrace();
 			} 
-			
+
 			Long t1 = System.currentTimeMillis();
 			try {
 				Thread.sleep(Math.max( period - (t1 - t0), 0));
@@ -229,6 +235,13 @@ public class LogFileMonitor extends AbstractMonitor {
 			} 
 		} 
 	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("LogFile");
+		return metrics;
+	}
+
 
 	@Override
 	public void start() {
@@ -247,6 +260,11 @@ public class LogFileMonitor extends AbstractMonitor {
 			almt.interrupt();
 		}
 		System.out.println("Log file monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}	
 
 }
