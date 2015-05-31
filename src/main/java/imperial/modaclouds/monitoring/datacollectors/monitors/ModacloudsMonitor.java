@@ -287,7 +287,7 @@ public class ModacloudsMonitor implements Observer {
 	 */
 	public static void main(String[] args) throws Exception {
 		if (args.length < 1) {
-			logger.error("Defualt mode is using the tower4clouds.");
+			logger.warn("Default mode is using the tower4clouds.");
 			mode = "tower4clouds";
 		}
 		else {
@@ -307,7 +307,7 @@ public class ModacloudsMonitor implements Observer {
 					buildInternalComponent(config));
 			dcDescriptor.addMonitoredResource(getInfrastructureMetrics(),
 					buildExternalComponent(config));
-			dcDescriptor.addRelatedResources(buildRelatedResources(config));
+			dcDescriptor.addResources(buildRelatedResources(config));
 			dcDescriptor.setConfigSyncPeriod(config.getDcSyncPeriod());
 			dcDescriptor.setKeepAlive(config.getResourcesKeepAlivePeriod());
 			dcAgent.setDCDescriptor(dcDescriptor);
