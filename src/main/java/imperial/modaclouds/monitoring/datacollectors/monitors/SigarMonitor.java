@@ -128,7 +128,7 @@ public class SigarMonitor extends AbstractMonitor {
 								period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
 								nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
 								temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
-
+								temp.setMetricName(metric);
 
 								metricList.add(temp);
 							}
