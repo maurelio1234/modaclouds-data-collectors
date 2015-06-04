@@ -38,7 +38,7 @@ public class Config {
 			
 			String resourcesKeepAlivePeriodString = getOptionalEnvVar(
 					Env.MODACLOUDS_TOWER4CLOUDS_RESOURCES_KEEP_ALIVE_PERIOD,
-					Integer.toString(dcSyncPeriod));
+					Integer.toString(resourcesKeepAlivePeriod));
 			resourcesKeepAlivePeriod = Integer.parseInt(resourcesKeepAlivePeriodString);
 			
 			cloudProviderId = getOptionalEnvVar(
