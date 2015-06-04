@@ -16,9 +16,10 @@
  */
 package imperial.modaclouds.monitoring.datacollectors.demo.ofbiz;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import imperial.modaclouds.monitoring.datacollectors.monitors.ModacloudsMonitor;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.InternalComponent;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -30,9 +31,10 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -40,19 +42,20 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import polimi.deib.csparql_rest_api.exception.ServerErrorException;
-import polimi.deib.csparql_rest_api.exception.StreamErrorException;
-
 /**
  * Response time monitor.
  */
 public class OFBizLogFileMonitor extends AbstractMonitor{
+
+	private Logger logger = LoggerFactory.getLogger(OFBizLogFileMonitor.class);
 
 	/**
 	 * Extract the request information according the regular expression.
@@ -90,7 +93,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 	 */
 	private double samplingProb;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 	/**
 	 * Constructor of the class.
@@ -102,17 +105,16 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 		//this.monitoredTarget = monitoredResourceID;
 
 		super(resourceId, mode);
-		
+
 		monitoredTarget = resourceId;
 
 		monitorName = "ofbiz";
-		dcAgent = DataCollectorAgent.getInstance();;
 	}
 
 	/**
 	 * Analyze file to extract information.
 	 */
-	private void analyseFile(File file) throws IOException, ParseException, ServerErrorException, StreamErrorException {
+	private void analyseFile(File file) throws IOException, ParseException {
 		if (!file.exists())
 			return;
 
@@ -201,7 +203,9 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				try {
 					if (Math.random() < samplingProb) {
-						dcAgent.sendSyncMonitoringDatum(temp, "ResponseInfo", monitoredTarget);
+						logger.info("Sending datum: {} {} {}",temp, "ResponseInfo", monitoredTarget);
+						dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+								Config.getInstance().getInternalComponentId()), "ResponseInfo",temp);
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -218,31 +222,33 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 		while (!olmt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 60000) {
 
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+					for (String metric : getProvidedMetrics()) {
 
-					for (DCConfig dc: dcConfig) {
+						try {
+							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId()), metric)) {
 
-							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("ofbiz")) {
-
-								Map<String, String> parameters = dc.getParameters();
+								Map<String, String> parameters = dcAgent.getParameters(metric);
 
 								fileName = parameters.get("logFileName");
 								pattern = parameters.get("pattern");
 								period = Integer.valueOf(parameters.get("samplingTime"));
 								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-								
-								
+
+
 								if (pattern == null) {
 									pattern = "(19|20\\d{2})-(0?[1-9]|1[012])-(0?[1-9]|[12]\\d|3[01]) ([01]?\\d|2[0-3]):([0-5]\\d):([0-5]\\d),(\\d{3}).*\\((http.+?)\\).*\\[\\[\\[(.+?)\\(Domain.*(Request Done).*total:(.*),";
 								}
-								break;
 							}
-						
+						} catch (NumberFormatException | ConfigurationException e) {
+							e.printStackTrace();
+						}
 					}
+
 					startTime = System.currentTimeMillis();
 				}
 			}
@@ -254,25 +260,25 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 					e2.printStackTrace();
 				}
 				File file_xml = new File(folder+"/config/configuration_LogFileParser.xml");
-				
+
 				DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 				DocumentBuilder dBuilder;
 				try {
 					dBuilder = dbFactory.newDocumentBuilder();
-					
+
 					Document doc = dBuilder.parse(file_xml);
-					
+
 					doc.getDocumentElement().normalize();
-			 		 
+
 					NodeList nList = doc.getElementsByTagName("OFBizLogFile");
 					for (int i = 0; i < nList.getLength(); i++) {
-						 
+
 						Node nNode = nList.item(i);
-				 	 
+
 						if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-				 
+
 							Element eElement = (Element) nNode;
-							
+
 							fileName = eElement.getElementsByTagName("LogFileName").item(0).getTextContent();
 							pattern = eElement.getElementsByTagName("Pattern").item(0).getTextContent();
 							period = Integer.valueOf(eElement.getElementsByTagName("monitorPeriod").item(0).getTextContent());
@@ -320,14 +326,7 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 				Arrays.sort(files, Collections.reverseOrder());
 				for (int i = 0; i < files.length; i++) {
-					try {
-						analyseFile(files[i]);
-					} catch (ServerErrorException e) {
-						e.printStackTrace();
-					} catch (StreamErrorException e) {
-						e.printStackTrace();
-					}
-
+					analyseFile(files[i]);
 					if(files[i].delete()){
 						System.out.println(files[i].getName() + " is deleted!");
 					}else{
@@ -350,6 +349,13 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 
 	} 
 
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("ResponseInfo");
+		return metrics;
+	}
+
+
 	@Override
 	public void start() {
 		olmt = new Thread( this, "olm-mon");
@@ -368,5 +374,10 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 		}
 
 		System.out.println("OFBiz monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;		
 	}
 }

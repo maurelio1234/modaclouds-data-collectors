@@ -17,8 +17,10 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -27,16 +29,19 @@ import java.io.InputStreamReader;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -48,6 +53,7 @@ import org.xml.sax.SAXException;
  */
 public class CollectlMonitor extends AbstractMonitor {
 
+	private Logger logger = LoggerFactory.getLogger(CollectlMonitor.class);
 	/**
 	 * Csparql server address.
 	 */
@@ -113,7 +119,7 @@ public class CollectlMonitor extends AbstractMonitor {
 	 */
 	private double samplingProb;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 
 
@@ -125,15 +131,11 @@ public class CollectlMonitor extends AbstractMonitor {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 		super(resourceId, mode);
-		
+
 		monitoredTarget = resourceId;
 
 		monitorName = "collectl";
 		serverIP = "localhost";
-
-		dcAgent = DataCollectorAgent.getInstance();
-
-		//ddaConnector.setDdaURL(objectStoreConnector.getDDAUrl());
 	}
 
 	@Override
@@ -148,22 +150,19 @@ public class CollectlMonitor extends AbstractMonitor {
 			// correspond to command: collectl -scndm --verbose -A server
 			while(!colt.isInterrupted()) 
 			{
-				if (mode.equals("kb")) {
+				if (mode.equals("tower4clouds")) {
 					if (System.currentTimeMillis() - startTime > 10000) {
 						ArrayList<String> requiredMetric = new ArrayList<String>();
 
-						Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-						for (DCConfig dc: dcConfig) {
+						for (String metric : getProvidedMetrics()) {
+							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId()), metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(metric);
 
-							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
+								requiredMetric.add(metric);
 
-								requiredMetric.add(dc.getMonitoredMetric());
-
-								Map<String, String> parameters = dc.getParameters();
-								
 								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
 							}
-					
 						}
 
 						metricPair = parseMetrics(requiredMetric);
@@ -215,14 +214,18 @@ public class CollectlMonitor extends AbstractMonitor {
 									if (isSent) {
 										if (key.toLowerCase().equals("cpuutilizationcollectl")) {
 											try {
-												dcAgent.sendSyncMonitoringDatum(String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+												logger.info("Sending datum: {} {} {}",String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+												dcAgent.send(new VM(Config.getInstance().getVmType(), 
+														Config.getInstance().getVmId()), key, 100-Integer.valueOf(values[8])); 
 											} catch (Exception e) {
 												e.printStackTrace();
 											}
 										}
 										else {
 											try {
-												dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+												logger.info("Sending datum: {} {} {}",String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+												dcAgent.send(new VM(Config.getInstance().getVmType(), 
+														Config.getInstance().getVmId()), key, values[value]); 
 											} catch (Exception e) {
 												e.printStackTrace();
 											}
@@ -242,7 +245,9 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											logger.info("Sending datum: {} {} {}",String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+											dcAgent.send(new VM(Config.getInstance().getVmType(), 
+													Config.getInstance().getVmId()), key, values[value]); 
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -261,7 +266,9 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											logger.info("Sending datum: {} {} {}",String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+											dcAgent.send(new VM(Config.getInstance().getVmType(), 
+													Config.getInstance().getVmId()), key, values[value]); 
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -280,7 +287,9 @@ public class CollectlMonitor extends AbstractMonitor {
 
 									if (isSent) {
 										try {
-											dcAgent.sendSyncMonitoringDatum(values[value], key, monitoredTarget);
+											logger.info("Sending datum: {} {} {}",String.valueOf(100-Integer.valueOf(values[8])), key, monitoredTarget);
+											dcAgent.send(new VM(Config.getInstance().getVmType(), 
+													Config.getInstance().getVmId()), key, values[value]); 
 										} catch (Exception e) {
 											e.printStackTrace();
 										}
@@ -301,6 +310,8 @@ public class CollectlMonitor extends AbstractMonitor {
 			System.err.println("Couldn't get I/O for the connection to: " + serverIP);
 			System.exit(1);
 		} catch (NumberFormatException e) {
+			e.printStackTrace();
+		} catch (ConfigurationException e) {
 			e.printStackTrace();
 		} 
 	}
@@ -410,20 +421,22 @@ public class CollectlMonitor extends AbstractMonitor {
 
 		List<Integer> periodList = new ArrayList<Integer>();
 
-		if (mode.equals("kb")) {
+		if (mode.equals("tower4clouds")) {
 
-			Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
-			for (DCConfig dc: dcConfig) {
-				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("collectl")) {
+			for (String metric : getProvidedMetrics()) {
+				try {
+					if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+							Config.getInstance().getVmId()), metric)) {
+						Map<String, String> parameters = dcAgent.getParameters(metric);
 
-					requiredMetric.add(dc.getMonitoredMetric());
+						requiredMetric.add(metric);
 
-					Map<String, String> parameters = dc.getParameters();
-
-					serverIP = parameters.get("serverIP");
-					periodList.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
-					samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-					
+						serverIP = parameters.get("serverIP");
+						periodList.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
+						samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+					}
+				} catch (NumberFormatException | ConfigurationException e) {
+					e.printStackTrace();
 				}
 			}
 
@@ -511,6 +524,21 @@ public class CollectlMonitor extends AbstractMonitor {
 		colt = new Thread(this, "col-mon");
 	}
 
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("CpuUtilizationCollectl");
+		metrics.add("ContextSwitchCollectl");
+		metrics.add("CpuUtilStolenCollectl");
+		metrics.add("InterruptsCollectl");
+		metrics.add("MaxProcsCollectl");
+		metrics.add("MaxProcsQueueCollectl");
+		metrics.add("MemUsedCollectl");
+		metrics.add("MemSwapSpaceUsedCollectl");
+		metrics.add("NetworkInBytesCollectl");
+		metrics.add("NetworkOutBytesCollectl");
+		return metrics;
+	}
+
 	@Override
 	public void init() {
 		long currentTime = System.currentTimeMillis();
@@ -546,6 +574,11 @@ public class CollectlMonitor extends AbstractMonitor {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

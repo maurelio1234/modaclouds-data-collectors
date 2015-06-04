@@ -44,6 +44,12 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk</artifactId>
 			<version>1.7.1</version>
+			<exclusions>
+				<exclusion> <!-- exclude this for conflict with httpclient in manager api -->
+					<groupId>org.apache.httpcomponents</groupId>
+					<artifactId>httpclient</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.freemarker</groupId>
@@ -112,9 +118,9 @@
 			<version>1.4.0</version>
 		</dependency>
 		<dependency>
-			<groupId>it.polimi.modaclouds.monitoring</groupId>
-			<artifactId>data-collector-factory</artifactId>
-			<version>0.3-SNAPSHOT</version>
+			<groupId>it.polimi.tower4clouds</groupId>
+			<artifactId>data-collector-library</artifactId>
+			<version>0.2-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 

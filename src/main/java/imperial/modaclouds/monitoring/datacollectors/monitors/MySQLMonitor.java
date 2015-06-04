@@ -17,9 +17,11 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.InternalComponent;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,15 +33,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -50,6 +55,8 @@ import org.xml.sax.SAXException;
  * The monitoring collector for MySQL database.
  */
 public class MySQLMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(MySQLMonitor.class);
 
 	/**
 	 * Mysql monitor thread.
@@ -86,7 +93,7 @@ public class MySQLMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
-	
+
 
 	/**
 	 * Object store connector.
@@ -103,7 +110,7 @@ public class MySQLMonitor extends AbstractMonitor {
 	 */
 	private List<Metric> metricList;
 
-	private DataCollectorAgent dcAgent; 
+	private DCAgent dcAgent; 
 
 	/**
 	 * Constructor of the class.
@@ -113,12 +120,11 @@ public class MySQLMonitor extends AbstractMonitor {
 	public MySQLMonitor(String resourceId, String mode)  {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
-	
+
 		super(resourceId, mode);
 		monitoredTarget = resourceId;
 
 		monitorName = "mysql";
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 
@@ -129,34 +135,34 @@ public class MySQLMonitor extends AbstractMonitor {
 
 		while (!sqlt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
-					
+
 					metricList = new ArrayList<Metric>();
 
 					List<Integer> periodList = new ArrayList<Integer>();
 
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+					for (String metric : getProvidedMetrics()) {
 
-					for (DCConfig dc: dcConfig) {
+						try {
+							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId()), metric)) {
 
-						
-
-							if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("mysql")) {
+								Map<String, String> parameters = dcAgent.getParameters(metric);
 
 								Metric temp = new Metric();
 
-								temp.setMetricName(dc.getMonitoredMetric());
-
-								Map<String, String> parameters = dc.getParameters();
+								temp.setMetricName(metric);
 
 								periodList.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
 								temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
 
 								metricList.add(temp);
 							}
-						
+						} catch (NumberFormatException | ConfigurationException e) {
+							e.printStackTrace();
+						}
 					}
 
 					period = Collections.min(periodList);
@@ -196,7 +202,9 @@ public class MySQLMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(variableName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									dcAgent.sendSyncMonitoringDatum(value, variableName, monitoredTarget);
+									logger.info("Sending datum: {} {} {}",value, variableName, monitoredTarget);
+									dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+											Config.getInstance().getInternalComponentId()), variableName,Double.valueOf(value));
 								}
 							}
 						}
@@ -227,23 +235,47 @@ public class MySQLMonitor extends AbstractMonitor {
 		}
 	}
 
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("Threads_running");
+		metrics.add("Threads_cached");
+		metrics.add("Threads_connected");
+		metrics.add("Threads_created");
+		metrics.add("Queries");
+		metrics.add("Bytes_received");
+		metrics.add("Bytes_sent");
+		metrics.add("Connections");
+		metrics.add("Threads_connected");
+		metrics.add("Aborted_connects");
+		metrics.add("Aborted_clients");
+		metrics.add("Table_locks_immediate");
+		metrics.add("Table_locks_waited");
+		metrics.add("Com_insert");
+		metrics.add("Com_delete");
+		metrics.add("Com_update");
+		metrics.add("Com_select");
+		metrics.add("Qcache_hits");
+		return metrics;
+	}
+
+
 	@Override
 	public void start() {
 		metricList = new ArrayList<Metric>();
-		if (mode.equals("kb")) {
+		if (mode.equals("tower4clouds")) {
 
-			Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+			for (String metric : getProvidedMetrics()) {
+				try {
+					if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
+							Config.getInstance().getInternalComponentId()), metric)) {
+						Map<String, String> parameters = dcAgent.getParameters(metric);
 
-			for (DCConfig dc: dcConfig) {
-				if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("mysql")) {
-
-					Map<String, String> parameters = dc.getParameters();
-
-					JDBC_URL = parameters.get("databaseAddress");
-					JDBC_NAME = parameters.get("databaseUser");
-					JDBC_PASSWORD = parameters.get("databasePassword");
-				
-					break;
+						JDBC_URL = parameters.get("databaseAddress");
+						JDBC_NAME = parameters.get("databaseUser");
+						JDBC_PASSWORD = parameters.get("databasePassword");
+					}
+				} catch (ConfigurationException e) {
+					e.printStackTrace();
 				}
 			}
 		}
@@ -328,6 +360,12 @@ public class MySQLMonitor extends AbstractMonitor {
 			sqlt.interrupt();
 		}
 		System.out.println("MySQL monitor stopped!");
+	}
+
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

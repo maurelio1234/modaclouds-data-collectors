@@ -1,14 +1,17 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 /**
  * The monitoring collector for availability of VMs.
@@ -16,7 +19,7 @@ import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
 public class VMAvailabilityMonitor extends AbstractMonitor {
 
 	private Logger logger = LoggerFactory.getLogger(VMAvailabilityMonitor.class);
-	
+
 	/**
 	 * Availability monitor thread.
 	 */
@@ -29,7 +32,7 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 
 	private int samplingTime;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 	public VMAvailabilityMonitor(String resourceId, String mode) {
 		super(resourceId, mode);
@@ -37,8 +40,6 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 		monitoredTarget = resourceId;
 
 		monitorName = "vmavailability";
-
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -48,19 +49,20 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 
 		while (!vavmt.isInterrupted()) {
 
-			if (mode.equals("kb")) {
+			if (mode.equals("tower4clouds")) {
 
 				if (System.currentTimeMillis() - startTime > 10000) {
-					Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-					for (DCConfig dc: dcConfig) {
+					for (String metric : getProvidedMetrics()) {
+						try {
+							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId()), metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(metric);
 
-						if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("vmavailability")) {			
-							Map<String, String> parameters = dc.getParameters();
-
-							samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
-
-							break;
+								samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
+							}
+						} catch (NumberFormatException | ConfigurationException e) {
+							e.printStackTrace();
 						}
 					}
 
@@ -69,15 +71,24 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 			}
 
 			try {
-				dcAgent.sendSyncMonitoringDatum("1","VMAvailable", monitoredTarget);
+				logger.info("Sending datum: {} {} {}",1, "VMAvailable", monitoredTarget);
+				dcAgent.send(new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId()), "VMAvailable", 1);
 				Thread.sleep(samplingTime);
-			} catch (InterruptedException e) {
+			} catch (InterruptedException | ConfigurationException e) {
 				e.printStackTrace();
 			}
 
 
 		}
 	}
+
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("VmAvailable");
+		return metrics;
+	}
+
 
 
 	@Override
@@ -97,6 +108,11 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 			vavmt.interrupt();
 		}
 		logger.info("VM Availability monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;		
 	}
 
 }

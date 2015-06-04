@@ -17,16 +17,22 @@
 package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.FileNotFoundException;
 import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -39,6 +45,8 @@ import com.amazonaws.services.ec2.model.DescribeSpotPriceHistoryResult;
  * The monitoring collector for spot instance price.
  */
 public class EC2SpotPriceMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(EC2SpotPriceMonitor.class);
 
 	/**
 	 * The description of spot instances.
@@ -64,7 +72,7 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	 */
 	private List<SpotInstance> spotInstanceVec;
 
-	
+
 
 	/**
 	 * The sampling probability
@@ -77,7 +85,7 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 	 */
 	private String monitoredTarget;
 
-	private DataCollectorAgent dcAgent;
+	private DCAgent dcAgent;
 
 
 	/**
@@ -90,10 +98,8 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 		//this.monitoredTarget = monitoredResourceID;
 		super(resourceId, mode);
 		monitorName = "ec2-spotPrice";
-		
-		monitoredTarget = resourceId;
 
-		dcAgent = DataCollectorAgent.getInstance();
+		monitoredTarget = resourceId;
 	}
 
 	@Override
@@ -110,40 +116,41 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 			if (System.currentTimeMillis() - startTime > 10000) {
 				spotInstanceVec = new ArrayList<SpotInstance>();
 
-				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
+				for (String metric : getProvidedMetrics()) {
+					try {
+						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId()), metric)) {
 
-				for (DCConfig dc: dcConfig) {
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
-					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("ec2-spotPrice")) {
+							String endpoint = null;
+							String productDes = null;
+							String instanceType = null;
 
-						Map<String, String> parameters = dc.getParameters();
+							accessKeyId = parameters.get("accessKey");
+							secretKey = parameters.get("secretKey");
+							endpoint = parameters.get("endPoint");
+							productDes = parameters.get("productDescription");
+							instanceType = parameters.get("productDescription");
+							period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+							samplingProb = Double.valueOf(parameters.get("samplingProbability"));
 
-						String endpoint = null;
-						String productDes = null;
-						String instanceType = null;
 
-						accessKeyId = parameters.get("accessKey");
-						secretKey = parameters.get("secretKey");
-						endpoint = parameters.get("endPoint");
-						productDes = parameters.get("productDescription");
-						instanceType = parameters.get("productDescription");
-						period = Integer.valueOf(parameters.get("samplingTime"))*1000;
-						samplingProb = Double.valueOf(parameters.get("samplingProbability"));
-						
+							SpotInstance spotInstance = new SpotInstance();
+							spotInstance.productDes = new ArrayList<String>();
+							spotInstance.instanceType = new ArrayList<String>();
 
-						SpotInstance spotInstance = new SpotInstance();
-						spotInstance.productDes = new ArrayList<String>();
-						spotInstance.instanceType = new ArrayList<String>();
+							spotInstance.endpoint = endpoint;
+							spotInstance.productDes.add(productDes);
+							spotInstance.instanceType.add(instanceType);
 
-						spotInstance.endpoint = endpoint;
-						spotInstance.productDes.add(productDes);
-						spotInstance.instanceType.add(instanceType);
-
-						spotInstanceVec.add(spotInstance);
-						break;
+							spotInstanceVec.add(spotInstance);
+						}
+					} catch (NumberFormatException | ConfigurationException e) {
+						e.printStackTrace();
 					}
-					
 				}
+
 				startTime = System.currentTimeMillis();
 			}
 
@@ -181,7 +188,9 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 							temp = temp.replace("SpotPrice: ", "");
 							System.out.println(temp);
 							try {
-								dcAgent.sendSyncMonitoringDatum(temp, "SpotPrice", monitoredTarget);
+								logger.info("Sending datum: {} {} {}",temp, "SpotPrice", monitoredTarget);
+								dcAgent.send(new VM(Config.getInstance().getVmType(), 
+										Config.getInstance().getVmId()), "SpotPrice", temp); 
 							} catch (Exception e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -208,6 +217,13 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 		}
 	}
 
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("EC2-SpotPrice");
+		return metrics;
+	}
+
+
 	@Override
 	public void start() {
 		spmt = new Thread(this, "spm-mon");
@@ -227,5 +243,10 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 			spmt.interrupt();
 		}
 		System.out.println("Spot history price monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 }

@@ -18,22 +18,25 @@ package imperial.modaclouds.monitoring.datacollectors.monitors;
 
 import freemarker.core.ParseException;
 import imperial.modaclouds.monitoring.datacollectors.basic.AbstractMonitor;
-import imperial.modaclouds.monitoring.datacollectors.basic.DataCollectorAgent;
+import imperial.modaclouds.monitoring.datacollectors.basic.Config;
+import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import imperial.modaclouds.monitoring.datacollectors.basic.Metric;
-import it.polimi.modaclouds.monitoring.dcfactory.DCConfig;
+import it.polimi.tower4clouds.data_collector_library.DCAgent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
-import java.io.FileNotFoundException;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClient;
@@ -46,6 +49,8 @@ import com.amazonaws.services.cloudwatch.model.GetMetricStatisticsResult;
  * The monitoring collector for CloudWatch.
  */
 public class CloudWatchMonitor extends AbstractMonitor {
+
+	private Logger logger = LoggerFactory.getLogger(CloudWatchMonitor.class);
 
 	/**
 	 * CloudWatch monitor thread.
@@ -78,7 +83,7 @@ public class CloudWatchMonitor extends AbstractMonitor {
 	 */
 	private List<Metric> metricList;
 
-	private DataCollectorAgent dcAgent; 
+	private DCAgent dcAgent; 
 
 
 
@@ -118,12 +123,11 @@ public class CloudWatchMonitor extends AbstractMonitor {
 		//this.monitoredResourceID = "FrontendVM";
 		//this.monitoredTarget = monitoredResourceID;
 		super(resourceId, mode);
-		
+
 		monitoredTarget = resourceId;
-		
+
 		monitorName = "cloudwatch";
 
-		dcAgent = DataCollectorAgent.getInstance();
 	}
 
 	@Override
@@ -146,29 +150,30 @@ public class CloudWatchMonitor extends AbstractMonitor {
 				measureNames = new ArrayList<String>();
 
 				metricList = new ArrayList<Metric>();
-				
-				Collection<DCConfig> dcConfig = dcAgent.getConfiguration(resourceId,null);
 
-				for (DCConfig dc: dcConfig) {
+				for (String metric : getProvidedMetrics()) {
+					try {
+						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(),
+								Config.getInstance().getVmId()), metric)){
+							Map<String, String> parameters = dcAgent.getParameters(metric);
 
-					if (ModacloudsMonitor.findCollector(dc.getMonitoredMetric()).equals("cloudwatch")) {
+							Metric temp = new Metric();
 
-						Metric temp = new Metric();
+							temp.setMetricName(metric);
 
-						temp.setMetricName(dc.getMonitoredMetric());
+							measureNames.add(metric.replace("CloudWatch", ""));
 
-						measureNames.add(dc.getMonitoredMetric().replace("CloudWatch", ""));
+							accessKeyId = parameters.get("accessKey");
+							instanceID = parameters.get("instanceID");
+							secretKey = parameters.get("secretKey");
+							period = Integer.valueOf(parameters.get("samplingTime"))*1000;
+							temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
+							endpoint = parameters.get("endpoint");
 
-						Map<String, String> parameters = dc.getParameters();
-
-						accessKeyId = parameters.get("accessKey");
-						instanceID = parameters.get("instanceID");
-						secretKey = parameters.get("secretKey");
-						period = Integer.valueOf(parameters.get("samplingTime"))*1000;
-						temp.setSamplingProb(Double.valueOf(parameters.get("samplingProbability")));
-						endpoint = parameters.get("endpoint");
-						
-						metricList.add(temp);
+							metricList.add(temp);
+						}
+					} catch (NumberFormatException | ConfigurationException e) {
+						e.printStackTrace();
 					}
 				}
 
@@ -191,7 +196,9 @@ public class CloudWatchMonitor extends AbstractMonitor {
 						for (Metric metric: metricList) {
 							if (metric.getMetricName().equals(measureName)) {
 								if (Math.random() < metric.getSamplingProb()) {
-									dcAgent.sendSyncMonitoringDatum(String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredTarget);
+									logger.info("Sending datum: {} {} {}",String.valueOf(measureSet.getMeasure(measureName)), measureName, monitoredTarget);
+									dcAgent.send(new VM(Config.getInstance().getVmType(),
+											Config.getInstance().getVmId()), measureName,measureSet.getMeasure(measureName));
 								}
 							}
 						}
@@ -285,6 +292,20 @@ public class CloudWatchMonitor extends AbstractMonitor {
 		}
 	}
 
+	private Set<String> getProvidedMetrics() {
+		Set<String> metrics = new HashSet<String>();
+		metrics.add("DiskreadopsCloudWatch");
+		metrics.add("CpuutilizationCloudWatch");
+		metrics.add("DiskReadOpsCloudWatch");
+		metrics.add("DiskWriteOpsCloudWatch");
+		metrics.add("DiskReadBytesCloudWatch");
+		metrics.add("DiskWriteBytesCloudWatch");
+		metrics.add("NetworkInCloudWatch");
+		metrics.add("NetworkOutCloudWatch");
+		return metrics;
+	}
+
+
 	@Override
 	public void start() {
 		cwmt = new Thread( this, "cwm-mon");
@@ -302,6 +323,11 @@ public class CloudWatchMonitor extends AbstractMonitor {
 			cwmt.interrupt();
 		}
 		System.out.println("CloudWatch monitor stopped!");
+	}
+
+	@Override
+	public void setDCAgent(DCAgent dcAgent) {
+		this.dcAgent = dcAgent;
 	}
 
 }

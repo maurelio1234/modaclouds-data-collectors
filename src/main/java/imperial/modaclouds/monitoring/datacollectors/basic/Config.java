@@ -1,57 +1,64 @@
 package imperial.modaclouds.monitoring.datacollectors.basic;
 
-import org.apache.commons.validator.routines.UrlValidator;
 
 public class Config {
-	
+
 	private static Config _instance = null;
-	private UrlValidator validator;
-	private String ddaIP;
-	private String ddaPort;
-	private String kbIP;
-	private String kbPort;
-	private String kbPath;
-	private String ddaUrl;
-	private String kbUrl;
-	private int kbSyncPeriod;
-	private String appId;
+	private String mmIP;
+	private int mmPort;
+	private int dcSyncPeriod = 30;
+	private int resourcesKeepAlivePeriod = 60;
+	private String cloudProviderId;
+	private String cloudProviderType;
+	private String paasServiceId;
+	private String paasServiceType;
 	private String vmId;
-	
+	private String vmType;
+	private String locationId;
+	private String locationtype;
+	private String internalComponentId;
+	private String internalComponentType;
+
 	public static Config getInstance() throws ConfigurationException {
 		if (_instance == null)
 			_instance = new Config();
 		return _instance;
 	}
-	
-	private Config() throws ConfigurationException{
-		validator = new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS);
-		ddaIP = getMandatoryEnvVar(Env.MODACLOUDS_MONITORING_DDA_ENDPOINT_IP);
-		ddaPort = getMandatoryEnvVar(Env.MODACLOUDS_MONITORING_DDA_ENDPOINT_PORT);
-		kbIP = getMandatoryEnvVar(Env.MODACLOUDS_KNOWLEDGEBASE_ENDPOINT_IP);
-		kbPort = getMandatoryEnvVar(Env.MODACLOUDS_KNOWLEDGEBASE_ENDPOINT_PORT);
-		kbPath = getMandatoryEnvVar(Env.MODACLOUDS_KNOWLEDGEBASE_DATASET_PATH);
-		String kbSyncPeriodString = getOptionalEnvVar(Env.MODACLOUDS_KNOWLEDGEBASE_SYNC_PERIOD);
-		appId = getMandatoryEnvVar(Env.MODACLOUDS_MONITORED_APP_ID);
-		vmId = getMandatoryEnvVar(Env.MODACLOUDS_MONITORED_VM_ID);
-		
-		ddaUrl = "http://" + ddaIP + ":" + ddaPort;
-		kbUrl = "http://" + kbIP + ":" + kbPort + kbPath;
-		
-		if (!validator.isValid(ddaUrl))
-			throw new ConfigurationException(ddaUrl + " is not a valid URL");
-		if (!validator.isValid(kbUrl))
-			throw new ConfigurationException(kbUrl + " is not a valid URL");
-		
+
+	private Config() throws ConfigurationException {
 		try {
-			kbSyncPeriod = Integer.parseInt(kbSyncPeriodString);
-		} catch (NumberFormatException e) {
-			throw new ConfigurationException(kbSyncPeriodString
-					+ " is not a valid value for "
-					+ Env.MODACLOUDS_KNOWLEDGEBASE_SYNC_PERIOD);
+			mmIP = getMandatoryEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_MANAGER_IP);
+			String mmPortString = getMandatoryEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_MANAGER_PORT);
+			mmPort = Integer.parseInt(mmPortString);
+
+			String dcSyncPeriodString = getOptionalEnvVar(
+					Env.MODACLOUDS_TOWER4CLOUDS_DC_SYNC_PERIOD,
+					Integer.toString(dcSyncPeriod));
+			dcSyncPeriod = Integer.parseInt(dcSyncPeriodString);
+			
+			String resourcesKeepAlivePeriodString = getOptionalEnvVar(
+					Env.MODACLOUDS_TOWER4CLOUDS_RESOURCES_KEEP_ALIVE_PERIOD,
+					Integer.toString(resourcesKeepAlivePeriod));
+			resourcesKeepAlivePeriod = Integer.parseInt(resourcesKeepAlivePeriodString);
+			
+			cloudProviderId = getOptionalEnvVar(
+					Env.MODACLOUDS_TOWER4CLOUDS_CLOUD_PROVIDER_ID);
+			cloudProviderType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_CLOUD_PROVIDER_TYPE);
+			paasServiceId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_PAAS_SERVICE_ID);
+			paasServiceType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_PAAS_SERVICE_TYPE);
+			vmId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_VM_ID);
+			vmType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_VM_TYPE);
+			locationId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_LOCATION_ID);
+			locationtype = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_LOCATION_TYPE);
+			internalComponentId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_ID);
+			internalComponentType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_TYPE);
+			
+
+		} catch (Exception e) {
+			throw new ConfigurationException(
+					"Could not configure properly the data collector", e);
 		}
 	}
-
-	
 
 	private String getMandatoryEnvVar(String varName)
 			throws ConfigurationException {
@@ -62,43 +69,72 @@ public class Config {
 		return var;
 	}
 
-
-	private String getOptionalEnvVar(String varName) {
-		String var = System.getenv(varName);
+	private String getOptionalEnvVar(String varName, String defaultValue) {
+		String var = getOptionalEnvVar(varName);
 		if (var == null) {
-			var = getDefaultValue(Env.MODACLOUDS_KNOWLEDGEBASE_SYNC_PERIOD);
+			var = defaultValue;
 		}
 		return var;
 	}
 
-	private  String getDefaultValue(String varName) {
-		switch (varName) {
-		case Env.MODACLOUDS_KNOWLEDGEBASE_SYNC_PERIOD:
-			return "10";
-		default:
-			return "";
-		}
+	private String getOptionalEnvVar(String varName) {
+		return System.getenv(varName);
 	}
-
-	public String getDdaUrl() {
-		return ddaUrl;
+	
+	public String getCloudProviderId() {
+		return cloudProviderId;
 	}
-
-	public String getKbUrl() {
-		return kbUrl;
+	
+	public String getCloudProviderType() {
+		return cloudProviderType;
 	}
-
-	public String getAppId() {
-		return appId;
+	
+	public String getInternalComponentId() {
+		return internalComponentId;
 	}
-
+	
+	public int getDcSyncPeriod() {
+		return dcSyncPeriod;
+	}
+	
+	public String getInternalComponentType() {
+		return internalComponentType;
+	}
+	
+	public String getLocationId() {
+		return locationId;
+	}
+	
+	public String getLocationtype() {
+		return locationtype;
+	}
+	
+	public String getMmIP() {
+		return mmIP;
+	}
+	
+	public int getMmPort() {
+		return mmPort;
+	}
+	
+	public String getPaasServiceId() {
+		return paasServiceId;
+	}
+	
+	public String getPaasServiceType() {
+		return paasServiceType;
+	}
+	
+	public int getResourcesKeepAlivePeriod() {
+		return resourcesKeepAlivePeriod;
+	}
+	
 	public String getVmId() {
 		return vmId;
 	}
-
-	public int getKbSyncPeriod() {
-		return kbSyncPeriod;
+	
+	public String getVmType() {
+		return vmType;
 	}
-	
-	
+
 }
