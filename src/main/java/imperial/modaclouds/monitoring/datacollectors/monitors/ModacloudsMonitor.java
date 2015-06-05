@@ -51,7 +51,7 @@ import org.xml.sax.SAXException;
 public class ModacloudsMonitor implements Observer {
 	private static final Logger logger = LoggerFactory
 			.getLogger(ModacloudsMonitor.class);
-	
+
 	private Set<String> oldCollectors = new HashSet<String>();
 
 	/**
@@ -106,8 +106,8 @@ public class ModacloudsMonitor implements Observer {
 	/**
 	 * Initial setup of the monitor.
 	 */
-	public void initSetup() throws ParserConfigurationException,
-			SAXException, IOException {
+	public void initSetup() throws ParserConfigurationException, SAXException,
+			IOException {
 		dcIndex = new HashMap<String, Integer>();
 		dcIndex.put("jmx", 1);
 		dcIndex.put("collectl", 2);
@@ -134,11 +134,12 @@ public class ModacloudsMonitor implements Observer {
 	 * 
 	 * @param index
 	 *            : monitoring collector index
-	 * @param dcAgent 
-	 * @throws ConfigurationException 
+	 * @param dcAgent
+	 * @throws ConfigurationException
 	 * 
 	 */
-	public void runMonitoring(String[] index, DCAgent dcAgent) throws ConfigurationException {
+	public void runMonitoring(String[] index, DCAgent dcAgent)
+			throws ConfigurationException {
 
 		int[] intArray = new int[index.length];
 		for (int i = 0; i < index.length; i++) {
@@ -159,12 +160,13 @@ public class ModacloudsMonitor implements Observer {
 			AbstractMonitor newMonitor = null;
 			switch (intArray[i]) {
 			case 1:
-				newMonitor = new JMXMonitor(Config.getInstance().getInternalComponentId(), mode);
+				newMonitor = new JMXMonitor(Config.getInstance()
+						.getInternalComponentId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 2:
-				newMonitor = new CollectlMonitor(Config.getInstance().getVmId(),
-						mode);
+				newMonitor = new CollectlMonitor(
+						Config.getInstance().getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 3:
@@ -173,22 +175,23 @@ public class ModacloudsMonitor implements Observer {
 				monitors.add(newMonitor);
 				break;
 			case 4:
-				newMonitor = new OFBizLogFileMonitor(Config.getInstance().getInternalComponentId(), mode);
+				newMonitor = new OFBizLogFileMonitor(Config.getInstance()
+						.getInternalComponentId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 5:
-				newMonitor = new LogFileMonitor(Config.getInstance().getInternalComponentId(),
-						mode);
+				newMonitor = new LogFileMonitor(Config.getInstance()
+						.getInternalComponentId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 6:
-				newMonitor = new MySQLMonitor(Config.getInstance().getInternalComponentId(),
-						mode);
+				newMonitor = new MySQLMonitor(Config.getInstance()
+						.getInternalComponentId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 7:
-				newMonitor = new CloudWatchMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new CloudWatchMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 8:
@@ -197,37 +200,38 @@ public class ModacloudsMonitor implements Observer {
 				monitors.add(newMonitor);
 				break;
 			case 9:
-				newMonitor = new EC2SpotPriceMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new EC2SpotPriceMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 10:
-				newMonitor = new StartupTimeMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new StartupTimeMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 11:
-				newMonitor = new CostMonitor(Config.getInstance().getVmId(), mode);
+				newMonitor = new CostMonitor(Config.getInstance().getVmId(),
+						mode);
 				monitors.add(newMonitor);
 				break;
 			case 12:
-				newMonitor = new VMAvailabilityMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new VMAvailabilityMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 13:
-				newMonitor = new DetailedCostMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new DetailedCostMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 14:
-				newMonitor = new HaproxyLogMonitor(
-						Config.getInstance().getVmId(), mode);
+				newMonitor = new HaproxyLogMonitor(Config.getInstance()
+						.getVmId(), mode);
 				monitors.add(newMonitor);
 				break;
 			case 15:
-				newMonitor = new AppAvailabilityMonitor(
-						Config.getInstance().getInternalComponentId(), mode);
+				newMonitor = new AppAvailabilityMonitor(Config.getInstance()
+						.getInternalComponentId(), mode);
 				monitors.add(newMonitor);
 				break;
 			}
@@ -289,11 +293,10 @@ public class ModacloudsMonitor implements Observer {
 		if (args.length < 1) {
 			logger.warn("Default mode is using the tower4clouds.");
 			mode = "tower4clouds";
-		}
-		else {
+		} else {
 			mode = args[0];
 		}
-		
+
 		modacloudsMonitor = new ModacloudsMonitor();
 
 		modacloudsMonitor.initSetup();
@@ -303,10 +306,16 @@ public class ModacloudsMonitor implements Observer {
 			DCAgent dcAgent = new DCAgent(new ManagerAPI(config.getMmIP(),
 					config.getMmPort()));
 			DCDescriptor dcDescriptor = new DCDescriptor();
-			dcDescriptor.addMonitoredResource(getApplicationMetrics(),
-					buildInternalComponent(config));
-			dcDescriptor.addMonitoredResource(getInfrastructureMetrics(),
-					buildExternalComponent(config));
+			if (config.getInternalComponentId() != null) {
+				dcDescriptor.addMonitoredResource(getApplicationMetrics(),
+						buildInternalComponent(config));
+				dcDescriptor.addResource(buildInternalComponent(config));
+			}
+			if (config.getVmId() != null) {
+				dcDescriptor.addMonitoredResource(getInfrastructureMetrics(),
+						buildExternalComponent(config));
+				dcDescriptor.addResource(buildExternalComponent(config));
+			}
 			dcDescriptor.addResources(buildRelatedResources(config));
 			dcDescriptor.setConfigSyncPeriod(config.getDcSyncPeriod());
 			dcDescriptor.setKeepAlive(config.getResourcesKeepAlivePeriod());
@@ -428,10 +437,10 @@ public class ModacloudsMonitor implements Observer {
 		metrics.add("ResponseInfo");
 		metrics.add("AppAvailable");
 		metrics.add("LogFile");
-			
+
 		return metrics;
 	}
-	
+
 	@Override
 	public void update(Observable o, Object arg) {
 		DCAgent dcAgent = (DCAgent) o;
@@ -440,7 +449,8 @@ public class ModacloudsMonitor implements Observer {
 		for (String metric : metrics) {
 			String collector = findCollector(metric);
 			if (collector == null) {
-				logger.error("Required metric {} has no associated collector", metric);
+				logger.error("Required metric {} has no associated collector",
+						metric);
 				continue;
 			}
 			if (!newCollectors.contains(collector)) {
@@ -464,8 +474,8 @@ public class ModacloudsMonitor implements Observer {
 		}
 
 		try {
-			modacloudsMonitor
-					.runMonitoring(toRun.toArray(new String[toRun.size()]), dcAgent);
+			modacloudsMonitor.runMonitoring(
+					toRun.toArray(new String[toRun.size()]), dcAgent);
 		} catch (ConfigurationException e) {
 			throw new RuntimeException(e);
 		}
@@ -544,7 +554,5 @@ public class ModacloudsMonitor implements Observer {
 			return collector;
 		}
 	}
-
-
 
 }
