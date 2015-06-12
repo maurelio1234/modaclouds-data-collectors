@@ -27,7 +27,9 @@ import it.polimi.tower4clouds.model.ontology.CloudProvider;
 import it.polimi.tower4clouds.model.ontology.ExternalComponent;
 import it.polimi.tower4clouds.model.ontology.InternalComponent;
 import it.polimi.tower4clouds.model.ontology.Location;
+import it.polimi.tower4clouds.model.ontology.PaaSService;
 import it.polimi.tower4clouds.model.ontology.Resource;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -346,11 +348,13 @@ public class ModacloudsMonitor implements Observer {
 
 	private static Resource buildExternalComponent(Config config)
 			throws ConfigurationException {
-		ExternalComponent externalComponent = new ExternalComponent();
+		ExternalComponent externalComponent;
 		if (config.getVmId() != null) {
+			externalComponent = new VM();
 			externalComponent.setId(config.getVmId());
 			externalComponent.setType(config.getVmType());
 		} else if (config.getPaasServiceId() != null) {
+			externalComponent = new PaaSService();
 			externalComponent.setId(config.getPaasServiceId());
 			externalComponent.setType(config.getPaasServiceType());
 		} else {
