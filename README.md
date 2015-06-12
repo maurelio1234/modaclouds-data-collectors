@@ -11,14 +11,16 @@ Please download and install the following pieces of software before using the Da
 * First, Compile the code or download the latest release from [https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases](https://github.com/imperial-modaclouds/Modaclouds-DataCollectors/releases).
 * Then set the following system environments:
 ```
-MODACLOUDS_KNOWLEDGEBASE_ENDPOINT_IP=<KB_IP> (e.g., "127.0.0.1")
-MODACLOUDS_KNOWLEDGEBASE_ENDPOINT_PORT=<KB_PORT> (e.g., "3030") 
-MODACLOUDS_KNOWLEDGEBASE_DATASET_PATH=<KB_PATH> (e.g., "/modaclouds/kb")
-MODACLOUDS_MONITORING_DDA_ENDPOINT_IP=<DDA_IP> (e.g., "127.0.0.1")
-MODACLOUDS_MONITORING_DDA_ENDPOINT_PORT=<DDA_PORT> (e.g., "8175")
-MODACLOUDS_KNOWLEDGEBASE_SYNC_PERIOD=<SYNC_PERIOD> (in seconds, e.g., "10")
-MODACLOUDS_MONITORED_APP_ID=<APP_ID> (e.g., "mic1")
-MODACLOUDS_MONITORED_VM_ID=<VM_ID> (e.g., "frontend1")
+MODACLOUDS_TOWER4CLOUDS_MANAGER_IP (e.g., "127.0.0.1")
+MODACLOUDS_TOWER4CLOUDS_MANAGER_PORT (e.g., "8170") 
+MODACLOUDS_TOWER4CLOUDS_DC_SYNC_PERIOD (e.g., 30)
+MODACLOUDS_TOWER4CLOUDS_RESOURCES_KEEP_ALIVE_PERIOD (e.g., 60)
+MODACLOUDS_TOWER4CLOUDS_CLOUD_PROVIDER_ID (e.g., "amazon")
+MODACLOUDS_TOWER4CLOUDS_CLOUD_PROVIDER_TYPE (e.g., "iaas")
+MODACLOUDS_TOWER4CLOUDS_VM_ID (e.g., "VM1")
+MODACLOUDS_TOWER4CLOUDS_VM_TYPE (e.g., "Frontend")
+MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_ID (e.g., "App-frontend")
+MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_TYPE (e.g., "App")
 ```
 * Then run it as: 
 ```java
