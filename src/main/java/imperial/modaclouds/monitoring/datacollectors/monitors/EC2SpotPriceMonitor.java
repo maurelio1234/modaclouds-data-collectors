@@ -118,10 +118,11 @@ public class EC2SpotPriceMonitor extends AbstractMonitor {
 
 				for (String metric : getProvidedMetrics()) {
 					try {
-						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-								Config.getInstance().getVmId()), metric)) {
+						VM resource = new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId());
+						if (dcAgent.shouldMonitor(resource, metric)) {
 
-							Map<String, String> parameters = dcAgent.getParameters(metric);
+							Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 							String endpoint = null;
 							String productDes = null;

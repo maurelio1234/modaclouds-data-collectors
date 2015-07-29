@@ -55,9 +55,10 @@ public class VMAvailabilityMonitor extends AbstractMonitor {
 
 					for (String metric : getProvidedMetrics()) {
 						try {
-							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-									Config.getInstance().getVmId()), metric)) {
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+							VM resource = new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
 							}
