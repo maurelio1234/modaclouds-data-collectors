@@ -27,6 +27,7 @@ import it.polimi.tower4clouds.model.ontology.CloudProvider;
 import it.polimi.tower4clouds.model.ontology.ExternalComponent;
 import it.polimi.tower4clouds.model.ontology.InternalComponent;
 import it.polimi.tower4clouds.model.ontology.Location;
+import it.polimi.tower4clouds.model.ontology.Method;
 import it.polimi.tower4clouds.model.ontology.PaaSService;
 import it.polimi.tower4clouds.model.ontology.Resource;
 import it.polimi.tower4clouds.model.ontology.VM;
@@ -311,6 +312,9 @@ public class ModacloudsMonitor implements Observer {
 			if (config.getInternalComponentId() != null) {
 				dcDescriptor.addMonitoredResource(getApplicationMetrics(),
 						buildInternalComponent(config));
+				if (config.getMethodName() != null) {
+					dcDescriptor.addMonitoredResource(getMethodMetrics(), buildMethod(config));
+				}
 				dcDescriptor.addResource(buildInternalComponent(config));
 			}
 			if (config.getVmId() != null) {
@@ -318,9 +322,11 @@ public class ModacloudsMonitor implements Observer {
 						buildExternalComponent(config));
 				dcDescriptor.addResource(buildExternalComponent(config));
 			}
+			
 			dcDescriptor.addResources(buildRelatedResources(config));
 			dcDescriptor.setConfigSyncPeriod(config.getDcSyncPeriod());
 			dcDescriptor.setKeepAlive(config.getResourcesKeepAlivePeriod());
+			
 			dcAgent.setDCDescriptor(dcDescriptor);
 			dcAgent.addObserver(modacloudsMonitor);
 			dcAgent.start();
@@ -374,7 +380,26 @@ public class ModacloudsMonitor implements Observer {
 				config.getInternalComponentId());
 		if (config.getVmId() != null)
 			internalComponent.addRequiredComponent(config.getVmId());
+		
+		if (config.getMethodName() != null) {
+			internalComponent.addProvidedMethod(buildMethod(config).getId());
+		}
 		return internalComponent;
+	}
+
+	private static Method buildMethod(Config config) {
+		return new Method(config.getMethodName(), config.getMethodName());
+	}
+	
+	private static Set<String> getMethodMetrics() {
+		// TODO return a set with all the method level metrics provided
+		// by this dc (case sensitive)
+		Set<String> metrics = new HashSet<String>();
+//		metrics.add("EffectiveResponseTime");
+		metrics.add("ResponseTime");
+//		metrics.add("Throughput");
+
+		return metrics;
 	}
 
 	private static Set<String> getInfrastructureMetrics() {
@@ -546,6 +571,8 @@ public class ModacloudsMonitor implements Observer {
 			metricCollectorMapping.put("appavailable", "appavailability");
 			metricCollectorMapping.put("flexi", "flexi");
 			metricCollectorMapping.put("haproxylog", "haproxy");
+
+			metricCollectorMapping.put("responsetime", "logFile");			
 		}
 
 		String collector;

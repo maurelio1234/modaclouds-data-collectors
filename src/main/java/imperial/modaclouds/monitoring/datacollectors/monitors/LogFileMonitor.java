@@ -21,6 +21,7 @@ import imperial.modaclouds.monitoring.datacollectors.basic.Config;
 import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import it.polimi.tower4clouds.data_collector_library.DCAgent;
 import it.polimi.tower4clouds.model.ontology.InternalComponent;
+import it.polimi.tower4clouds.model.ontology.Method;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -127,12 +128,15 @@ public class LogFileMonitor extends AbstractMonitor {
 						try {
 							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
 									Config.getInstance().getInternalComponentId()), metric)) {
-								Map<String, String> parameters = dcAgent.getParameters(metric);
-
-								fileName = parameters.get("fileName");
-								pattern = parameters.get("pattern");
-								period = Integer.valueOf(parameters.get("samplingTime"));
-								samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+								loadParameters(metric);
+							}
+							
+							if (Config.getInstance().getMethodName() != null
+									&& dcAgent.shouldMonitor(new Method(Config
+											.getInstance().getMethodName(),
+											Config.getInstance()
+													.getMethodName()), metric)) {
+								loadParameters(metric);
 							}
 						} catch (NumberFormatException | ConfigurationException e) {
 							e.printStackTrace();
@@ -204,8 +208,11 @@ public class LogFileMonitor extends AbstractMonitor {
 						try {
 							if (Math.random() < samplingProb) {
 								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
-								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
-										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
+//								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+//										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
+								if (Config.getInstance().getMethodName() != null) {
+									dcAgent.send(new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodName()), "ResponseTime", temp);																	
+								}
 							}
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 						} catch (NumberFormatException e) {
@@ -236,9 +243,22 @@ public class LogFileMonitor extends AbstractMonitor {
 		} 
 	}
 
+	private void loadParameters(String metric) {
+		Map<String, String> parameters = dcAgent.getParameters(metric);
+
+		fileName = parameters.get("fileName").trim();
+		pattern = parameters.get("pattern").trim();
+		if (pattern.trim().equals("XXX")) {
+			pattern = "^([\\d.]+) (\\S+) (\\S+) \\[([\\w:/]+\\s[+\\\\-]\\d{4})\\] \\\"(.+?)\\\" (\\d{3}) (\\d+) \\\"([^\\\"]+)\\\" \\\"([^\\\"]+)\\\"";
+		}
+		period = Integer.valueOf(parameters.get("samplingTime"));
+		samplingProb = Double.valueOf(parameters.get("samplingProbability"));
+	}
+
 	private Set<String> getProvidedMetrics() {
 		Set<String> metrics = new HashSet<String>();
 		metrics.add("LogFile");
+		metrics.add("ResponseTime");
 		return metrics;
 	}
 
