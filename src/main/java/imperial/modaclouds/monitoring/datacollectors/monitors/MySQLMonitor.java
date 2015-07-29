@@ -146,10 +146,11 @@ public class MySQLMonitor extends AbstractMonitor {
 					for (String metric : getProvidedMetrics()) {
 
 						try {
-							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
-									Config.getInstance().getInternalComponentId()), metric)) {
+							InternalComponent resource = new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
 
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								Metric temp = new Metric();
 
@@ -266,9 +267,10 @@ public class MySQLMonitor extends AbstractMonitor {
 
 			for (String metric : getProvidedMetrics()) {
 				try {
-					if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
-							Config.getInstance().getInternalComponentId()), metric)) {
-						Map<String, String> parameters = dcAgent.getParameters(metric);
+					InternalComponent resource = new InternalComponent(Config.getInstance().getInternalComponentType(),
+							Config.getInstance().getInternalComponentId());
+					if (dcAgent.shouldMonitor(resource, metric)) {
+						Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 						JDBC_URL = parameters.get("databaseAddress");
 						JDBC_NAME = parameters.get("databaseUser");

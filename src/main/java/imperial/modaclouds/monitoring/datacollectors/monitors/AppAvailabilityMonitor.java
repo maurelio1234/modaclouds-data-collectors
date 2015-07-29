@@ -67,10 +67,11 @@ public class AppAvailabilityMonitor extends AbstractMonitor{
 					for (String metric : getProvidedMetrics()) {
 
 						try {
-							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
-									Config.getInstance().getInternalComponentId()), metric)) {
+							InternalComponent resource = new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
 
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								samplingTime = Integer.valueOf(parameters.get("samplingTime"))*1000;
 								port = Integer.valueOf(parameters.get("port"));

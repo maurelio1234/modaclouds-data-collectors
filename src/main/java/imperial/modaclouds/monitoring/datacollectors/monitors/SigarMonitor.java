@@ -120,10 +120,11 @@ public class SigarMonitor extends AbstractMonitor {
 
 					for (String metric : getProvidedMetrics()) {
 						try {
-							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-									Config.getInstance().getVmId()), metric)) {
+							VM resource = new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
 								Metric temp = new Metric();
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								period.add(Integer.valueOf(parameters.get("samplingTime"))*1000);
 								nextPauseTime.add(Integer.valueOf(parameters.get("samplingTime"))*1000);

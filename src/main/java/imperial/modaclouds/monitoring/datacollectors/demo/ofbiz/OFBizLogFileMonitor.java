@@ -229,10 +229,11 @@ public class OFBizLogFileMonitor extends AbstractMonitor{
 					for (String metric : getProvidedMetrics()) {
 
 						try {
-							if (dcAgent.shouldMonitor(new InternalComponent(Config.getInstance().getInternalComponentType(),
-									Config.getInstance().getInternalComponentId()), metric)) {
+							InternalComponent resource = new InternalComponent(Config.getInstance().getInternalComponentType(),
+									Config.getInstance().getInternalComponentId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
 
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								fileName = parameters.get("logFileName");
 								pattern = parameters.get("pattern");

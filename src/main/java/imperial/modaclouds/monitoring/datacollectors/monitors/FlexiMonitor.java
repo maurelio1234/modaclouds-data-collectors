@@ -106,9 +106,10 @@ public class FlexiMonitor extends AbstractMonitor {
 
 		for (String metric : getProvidedMetrics()) {
 			try {
-				if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-						Config.getInstance().getVmId()), metric)) {
-					Map<String, String> parameters = dcAgent.getParameters(metric);
+				VM resource = new VM(Config.getInstance().getVmType(), 
+						Config.getInstance().getVmId());
+				if (dcAgent.shouldMonitor(resource, metric)) {
+					Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 					monitoredMachineAddress = parameters.get("monitoredMachineAddress");
 					user = parameters.get("user");
@@ -137,9 +138,10 @@ public class FlexiMonitor extends AbstractMonitor {
 				if (System.currentTimeMillis() - startTime > 60000) {
 
 					for (String metric : getProvidedMetrics()) {
-						if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-								Config.getInstance().getVmId()), metric)) {
-							Map<String, String> parameters = dcAgent.getParameters(metric);
+						VM resource = new VM(Config.getInstance().getVmType(), 
+								Config.getInstance().getVmId());
+						if (dcAgent.shouldMonitor(resource, metric)) {
+							Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 							period = Integer.valueOf(parameters.get("samplingTime"));
 							samplingProb = Double.valueOf(parameters.get("samplingProbability"));
