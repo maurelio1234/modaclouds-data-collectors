@@ -80,6 +80,10 @@ public class LogFileMonitor extends AbstractMonitor {
 	 */
 	private int period;
 
+	/**
+	 * File position.
+	 */
+	private long filePointer;
 
 
 	/**
@@ -185,39 +189,45 @@ public class LogFileMonitor extends AbstractMonitor {
 
 			//String fullFileName = fileName+"."+dateFormat.format(date);
 			Long t0 = System.currentTimeMillis();
-			RandomAccessFile in = null;
+			RandomAccessFile file = null;
 
 			try {
-				in = new RandomAccessFile(fileName, "r");
+				file = new RandomAccessFile(fileName, "r");
 				String line;
 
-
-				if((line = in.readLine()) != null) {
-					Matcher requestMatcher = requestPattern.matcher(line);
-					while (requestMatcher.find()) {
-						String temp = "";
-						for (int i = 1; i <= requestMatcher.groupCount(); i++) {
-							temp = temp + requestMatcher.group(i);
-							if (i != requestMatcher.groupCount())
-								temp = temp + ", ";
-						}
-						//System.out.println(temp);
-						try {
-							if (Math.random() < samplingProb) {
-								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
-								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
-										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
+				if (file.length() < filePointer) {
+					file = new RandomAccessFile(fileName, "r");
+					filePointer = 0;
+				} else {
+					file.seek(filePointer);
+					if((line = file.readLine()) != null) {
+						Matcher requestMatcher = requestPattern.matcher(line);
+						while (requestMatcher.find()) {
+							String temp = "";
+							for (int i = 1; i <= requestMatcher.groupCount(); i++) {
+								temp = temp + requestMatcher.group(i);
+								if (i != requestMatcher.groupCount())
+									temp = temp + ", ";
 							}
-							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
-						} catch (NumberFormatException e) {
-							e.printStackTrace();
-						} catch (Exception e) {
-							e.printStackTrace();
-						} 
+							//System.out.println(temp);
+							try {
+								if (Math.random() < samplingProb) {
+									logger.info("Sending datum: {} {} {}",temp, "logFile", monitoredTarget);
+									dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+											Config.getInstance().getInternalComponentId()), "logFile",temp);
+								}
+								//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
+							} catch (NumberFormatException e) {
+								e.printStackTrace();
+							} catch (Exception e) {
+								e.printStackTrace();
+							} 
 
-					}	
-				} 
-				in.close();
+						}	
+					} 
+				}
+
+				file.close();
 			} catch (IOException e) {
 				e.printStackTrace();
 			} 
@@ -227,7 +237,7 @@ public class LogFileMonitor extends AbstractMonitor {
 				Thread.sleep(Math.max( period - (t1 - t0), 0));
 			} catch (InterruptedException e) {
 				try {
-					in.close();
+					file.close();
 				} catch (IOException e1) {
 					e1.printStackTrace();
 				}
