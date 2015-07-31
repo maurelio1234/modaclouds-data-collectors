@@ -210,7 +210,14 @@ public class LogFileMonitor extends AbstractMonitor {
 								temp = temp + ", ";
 						}
 						//System.out.println(temp);
+						
 						int ltemp = new Random().nextInt(2000);
+						
+						// This is a ugly hack
+						String[] exp = line.split(" ");
+						ltemp = Integer.parseInt(exp[9]);
+						String accessPath = exp[6];
+						
 						try {
 							if (Math.random() < samplingProb) {
 //								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
@@ -218,6 +225,7 @@ public class LogFileMonitor extends AbstractMonitor {
 //										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
 								if (Config.getInstance().getMethodName() != null) {
 									Method m = new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodId());
+									logger.info("Access path: {}",accessPath);
 									logger.info("Sending datum: {} {} {}",m, "ResponseTime", ltemp);
 									dcAgent.send(m, "ResponseTime", ltemp);																	
 								}
