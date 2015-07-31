@@ -30,6 +30,7 @@ import java.io.RandomAccessFile;
 import java.net.MalformedURLException;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -100,6 +101,7 @@ public class LogFileMonitor extends AbstractMonitor {
 
 	private DCAgent dcAgent;
 
+
 	/**
 	 * Constructor of the class.
 	 * @throws MalformedURLException 
@@ -117,6 +119,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	public void run() {
 
 		long startTime = 0;
+		long lastPosition = -1L;		
 
 		while(!almt.isInterrupted()) {
 
@@ -193,7 +196,9 @@ public class LogFileMonitor extends AbstractMonitor {
 			try {
 				in = new RandomAccessFile(fileName, "r");
 				String line;
-
+				if (lastPosition > 0) {
+					in.seek(lastPosition);
+				}
 
 				if((line = in.readLine()) != null) {
 					Matcher requestMatcher = requestPattern.matcher(line);
@@ -205,12 +210,14 @@ public class LogFileMonitor extends AbstractMonitor {
 								temp = temp + ", ";
 						}
 						//System.out.println(temp);
+						temp = ""+new Random().nextInt(2000);
 						try {
 							if (Math.random() < samplingProb) {
-								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
+//								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
 //								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
 //										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
 								if (Config.getInstance().getMethodName() != null) {
+									logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
 									dcAgent.send(new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodName()), "ResponseTime", temp);																	
 								}
 							}
@@ -223,6 +230,7 @@ public class LogFileMonitor extends AbstractMonitor {
 
 					}	
 				} 
+				lastPosition = in.getFilePointer();
 				in.close();
 			} catch (IOException e) {
 				e.printStackTrace();

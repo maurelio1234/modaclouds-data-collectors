@@ -316,6 +316,7 @@ public class ModacloudsMonitor implements Observer {
 					dcDescriptor.addMonitoredResource(getMethodMetrics(), buildMethod(config));
 				}
 				dcDescriptor.addResource(buildInternalComponent(config));
+				dcDescriptor.addResource(buildMethod(config));
 			}
 			if (config.getVmId() != null) {
 				dcDescriptor.addMonitoredResource(getInfrastructureMetrics(),
