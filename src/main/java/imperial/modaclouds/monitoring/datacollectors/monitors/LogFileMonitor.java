@@ -210,15 +210,16 @@ public class LogFileMonitor extends AbstractMonitor {
 								temp = temp + ", ";
 						}
 						//System.out.println(temp);
-						temp = ""+new Random().nextInt(2000);
+						int ltemp = new Random().nextInt(2000);
 						try {
 							if (Math.random() < samplingProb) {
 //								logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
 //								dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
 //										Config.getInstance().getInternalComponentId()), CollectedMetric,temp);
 								if (Config.getInstance().getMethodName() != null) {
-									logger.info("Sending datum: {} {} {}",temp, CollectedMetric, monitoredTarget);
-									dcAgent.send(new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodName()), "ResponseTime", temp);																	
+									Method m = new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodId());
+									logger.info("Sending datum: {} {} {}",m, "ResponseTime", ltemp);
+									dcAgent.send(m, "ResponseTime", ltemp);																	
 								}
 							}
 							//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);

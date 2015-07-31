@@ -389,7 +389,7 @@ public class ModacloudsMonitor implements Observer {
 	}
 
 	private static Method buildMethod(Config config) {
-		return new Method(config.getMethodName(), config.getMethodName());
+		return new Method(config.getMethodName(), config.getMethodId());
 	}
 	
 	private static Set<String> getMethodMetrics() {
