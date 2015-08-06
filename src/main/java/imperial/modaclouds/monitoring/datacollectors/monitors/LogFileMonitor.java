@@ -21,6 +21,7 @@ import imperial.modaclouds.monitoring.datacollectors.basic.Config;
 import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import it.polimi.tower4clouds.data_collector_library.DCAgent;
 import it.polimi.tower4clouds.model.ontology.InternalComponent;
+import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -120,7 +121,7 @@ public class LogFileMonitor extends AbstractMonitor {
 	public void run() {
 
 		long startTime = 0;
-
+		
 		while(!almt.isInterrupted()) {
 
 			if (mode.equals("tower4clouds")) {
@@ -132,6 +133,7 @@ public class LogFileMonitor extends AbstractMonitor {
 							InternalComponent resource = new InternalComponent(Config.getInstance().getInternalComponentType(),
 									Config.getInstance().getInternalComponentId());
 							if (dcAgent.shouldMonitor(resource, metric)) {
+								System.out.println("should monitor check passed!");
 								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								fileName = parameters.get("fileName");
@@ -200,21 +202,22 @@ public class LogFileMonitor extends AbstractMonitor {
 					filePointer = 0;
 				} else {
 					file.seek(filePointer);
-					if((line = file.readLine()) != null) {
+					while((line = file.readLine()) != null) {
 						Matcher requestMatcher = requestPattern.matcher(line);
 						while (requestMatcher.find()) {
-							String temp = "";
-							for (int i = 1; i <= requestMatcher.groupCount(); i++) {
-								temp = temp + requestMatcher.group(i);
-								if (i != requestMatcher.groupCount())
-									temp = temp + ", ";
-							}
+							String value = requestMatcher.group(7);
+//							String temp = "";
+//							for (int i = 1; i <= requestMatcher.groupCount(); i++) {
+//								temp = temp + requestMatcher.group(i);
+//								if (i != requestMatcher.groupCount())
+//									temp = temp + ", ";
+//							}
 							//System.out.println(temp);
 							try {
 								if (Math.random() < samplingProb) {
-									logger.info("Sending datum: {} {} {}",temp, "logFile", monitoredTarget);
+									logger.info("Sending datum: {} {} {}",value, "LogFile", monitoredTarget);
 									dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
-											Config.getInstance().getInternalComponentId()), "logFile",temp);
+											Config.getInstance().getInternalComponentId()), "LogFile",Double.valueOf(value));
 								}
 								//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 							} catch (NumberFormatException e) {
@@ -225,6 +228,7 @@ public class LogFileMonitor extends AbstractMonitor {
 
 						}	
 					} 
+					filePointer = file.getFilePointer();
 				}
 
 				file.close();
