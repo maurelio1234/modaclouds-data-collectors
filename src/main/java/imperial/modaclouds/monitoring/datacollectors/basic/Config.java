@@ -18,6 +18,9 @@ public class Config {
 	private String locationtype;
 	private String internalComponentId;
 	private String internalComponentType;
+	private String methodName;
+	private String methodId;
+
 
 	public static Config getInstance() throws ConfigurationException {
 		if (_instance == null)
@@ -52,7 +55,8 @@ public class Config {
 			locationtype = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_LOCATION_TYPE);
 			internalComponentId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_ID);
 			internalComponentType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_TYPE);
-			
+			methodName = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_METHOD_NAME);			
+			methodId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_METHOD_ID);		
 
 		} catch (Exception e) {
 			throw new ConfigurationException(
@@ -135,6 +139,14 @@ public class Config {
 	
 	public String getVmType() {
 		return vmType;
+	}
+	
+	public String getMethodName() {
+		return methodName;
+	}
+
+	public String getMethodId() {
+		return methodId;
 	}
 
 }

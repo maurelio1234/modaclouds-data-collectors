@@ -21,6 +21,7 @@ import imperial.modaclouds.monitoring.datacollectors.basic.Config;
 import imperial.modaclouds.monitoring.datacollectors.basic.ConfigurationException;
 import it.polimi.tower4clouds.data_collector_library.DCAgent;
 import it.polimi.tower4clouds.model.ontology.InternalComponent;
+import it.polimi.tower4clouds.model.ontology.Method;
 import it.polimi.tower4clouds.model.ontology.VM;
 
 import java.io.File;
@@ -215,9 +216,12 @@ public class LogFileMonitor extends AbstractMonitor {
 							//System.out.println(temp);
 							try {
 								if (Math.random() < samplingProb) {
-									logger.info("Sending datum: {} {} {}",value, "LogFile", monitoredTarget);
-									dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
-											Config.getInstance().getInternalComponentId()), "LogFile",Double.valueOf(value));
+									Method m = new Method(Config.getInstance().getMethodName(), Config.getInstance().getMethodId());
+									//logger.info("Sending datum: {} {} {}",m, "LogFile", ltemp);
+									dcAgent.send(m, "ResponseTime", Double.valueOf(value));	
+									logger.info("Sending datum: {} {} {}",value, "LogFile", m);
+									//dcAgent.send(new InternalComponent(Config.getInstance().getInternalComponentType(),
+									//		Config.getInstance().getInternalComponentId()), "LogFile",Double.valueOf(value));
 								}
 								//sendMonitoringDatum(Double.valueOf(temp), ResourceFactory.createResource(MC.getURI() + "ApacheLogFile"), monitoredResourceURL, monitoredResource);
 							} catch (NumberFormatException e) {
