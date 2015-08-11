@@ -155,9 +155,10 @@ public class CollectlMonitor extends AbstractMonitor {
 						ArrayList<String> requiredMetric = new ArrayList<String>();
 
 						for (String metric : getProvidedMetrics()) {
-							if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-									Config.getInstance().getVmId()), metric)) {
-								Map<String, String> parameters = dcAgent.getParameters(metric);
+							VM resource = new VM(Config.getInstance().getVmType(), 
+									Config.getInstance().getVmId());
+							if (dcAgent.shouldMonitor(resource, metric)) {
+								Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 								requiredMetric.add(metric);
 
@@ -425,9 +426,10 @@ public class CollectlMonitor extends AbstractMonitor {
 
 			for (String metric : getProvidedMetrics()) {
 				try {
-					if (dcAgent.shouldMonitor(new VM(Config.getInstance().getVmType(), 
-							Config.getInstance().getVmId()), metric)) {
-						Map<String, String> parameters = dcAgent.getParameters(metric);
+					VM resource = new VM(Config.getInstance().getVmType(), 
+							Config.getInstance().getVmId());
+					if (dcAgent.shouldMonitor(resource, metric)) {
+						Map<String, String> parameters = dcAgent.getParameters(resource, metric);
 
 						requiredMetric.add(metric);
 

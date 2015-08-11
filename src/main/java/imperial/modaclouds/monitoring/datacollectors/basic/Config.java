@@ -55,7 +55,7 @@ public class Config {
 			internalComponentId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_ID);
 			internalComponentType = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_INTERNAL_COMPONENT_TYPE);
 			methodName = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_METHOD_NAME);			
-			methodId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_METHOD_ID);			
+			methodId = getOptionalEnvVar(Env.MODACLOUDS_TOWER4CLOUDS_METHOD_ID);		
 		} catch (Exception e) {
 			throw new ConfigurationException(
 					"Could not configure properly the data collector", e);
@@ -138,7 +138,7 @@ public class Config {
 	public String getVmType() {
 		return vmType;
 	}
-
+	
 	public String getMethodName() {
 		return methodName;
 	}
@@ -146,4 +146,5 @@ public class Config {
 	public String getMethodId() {
 		return methodId;
 	}
+
 }
